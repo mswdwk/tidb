@@ -2,7 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "driver",
-    srcs = ["tikv_driver.go"],
+    srcs = ["tikv_driver.go hbase_driver.go"],
     importpath = "github.com/pingcap/tidb/store/driver",
     visibility = ["//visibility:public"],
     deps = [

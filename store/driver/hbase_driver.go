@@ -18,17 +18,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pingcap/errors"
 	deadlockpb "github.com/pingcap/kvproto/pkg/deadlock"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/pingcap/tidb/kv"
-	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/store/copr"
 	derr "github.com/pingcap/tidb/store/driver/error"
 	txn_driver "github.com/pingcap/tidb/store/driver/txn"
@@ -39,68 +36,65 @@ import (
 	"github.com/tikv/client-go/v2/tikvrpc"
 	"github.com/tikv/client-go/v2/util"
 	pd "github.com/tikv/pd/client"
-	rmclient "github.com/tikv/pd/client/resource_manager/client"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
 
-type storeCache struct {
-	sync.Mutex
-	cache      map[string]*tikvStore
-	hbaseCache map[string]*hbaseStore
-}
+/*
+	type storeCache struct {
+		sync.Mutex
+		cache map[string]*hbaseStore
+	}
 
 var mc storeCache
-
 func init() {
-	mc.cache = make(map[string]*tikvStore)
 	mc.hbaseCache = make(map[string]*hbaseStore)
 	rand.Seed(time.Now().UnixNano())
 
 	// Setup the Hooks to dynamic control global resource controller.
 	variable.EnableGlobalResourceControlFunc = tikv.EnableResourceControl
 	variable.DisableGlobalResourceControlFunc = tikv.DisableResourceControl
-}
+}*/
 
-// Option is a function that changes some config of Driver
-type Option func(*TiKVDriver)
+// HBaseOption is a function that changes some config of Driver
+type HBaseOption func(*HBaseDriver)
 
 // WithSecurity changes the config.Security used by tikv driver.
-func WithSecurity(s config.Security) Option {
-	return func(c *TiKVDriver) {
+/*func WithSecurity(s config.Security) HBaseOption {
+	return func(c *HBaseDriver) {
 		c.security = s
 	}
-}
+}*/
 
 // WithTiKVClientConfig changes the config.TiKVClient used by tikv driver.
-func WithTiKVClientConfig(client config.TiKVClient) Option {
-	return func(c *TiKVDriver) {
+/*func WithTiKVClientConfig(client config.TiKVClient) HBaseOption {
+	return func(c *HBaseDriver) {
 		c.tikvConfig = client
 	}
-}
+}*/
 
 // WithTxnLocalLatches changes the config.TxnLocalLatches used by tikv driver.
-func WithTxnLocalLatches(t config.TxnLocalLatches) Option {
-	return func(c *TiKVDriver) {
+/*func WithTxnLocalLatches(t config.TxnLocalLatches) HBaseOption {
+	return func(c *HBaseDriver) {
 		c.txnLocalLatches = t
 	}
-}
+}*/
 
 // WithPDClientConfig changes the config.PDClient used by tikv driver.
-func WithPDClientConfig(client config.PDClient) Option {
-	return func(c *TiKVDriver) {
+/*func WithPDClientConfig(client config.PDClient) HBaseOption {
+	return func(c *HBaseDriver) {
 		c.pdConfig = client
 	}
-}
+}*/
 
 // TrySetupGlobalResourceController tries to setup global resource controller.
-func TrySetupGlobalResourceController(ctx context.Context, serverID uint64, s kv.Storage) error {
+/*func TrySetupGlobalResourceController(ctx context.Context, serverID uint64, s kv.Storage) error {
 	var (
-		store *tikvStore
+		store *hbaseStore
 		ok    bool
 	)
-	if store, ok = s.(*tikvStore); !ok {
+	if store, ok = s.(*hbaseStore); !ok {
 		return errors.New("cannot setup up resource controller, should use tikv storage")
 	}
 
@@ -111,10 +105,10 @@ func TrySetupGlobalResourceController(ctx context.Context, serverID uint64, s kv
 	tikv.SetResourceControlInterceptor(control)
 	control.Start(ctx)
 	return nil
-}
+}*/
 
-// TiKVDriver implements engine TiKV.
-type TiKVDriver struct {
+// HBaseDriver implements engine TiKV.
+type HBaseDriver struct {
 	pdConfig        config.PDClient
 	security        config.Security
 	tikvConfig      config.TiKVClient
@@ -123,11 +117,11 @@ type TiKVDriver struct {
 
 // Open opens or creates an TiKV storage with given path using global config.
 // Path example: tikv://etcd-node1:port,etcd-node2:port?cluster=1&disableGC=false
-func (d TiKVDriver) Open(path string) (kv.Storage, error) {
+func (d HBaseDriver) Open(path string) (kv.Storage, error) {
 	return d.OpenWithOptions(path)
 }
 
-func (d *TiKVDriver) setDefaultAndOptions(options ...Option) {
+func (d *HBaseDriver) setDefaultAndOptions(options ...HBaseOption) {
 	tidbCfg := config.GetGlobalConfig()
 	d.pdConfig = tidbCfg.PDClient
 	d.security = tidbCfg.Security
@@ -140,7 +134,7 @@ func (d *TiKVDriver) setDefaultAndOptions(options ...Option) {
 
 // OpenWithOptions is used by other program that use tidb as a library, to avoid modifying GlobalConfig
 // unspecified options will be set to global config
-func (d TiKVDriver) OpenWithOptions(path string, options ...Option) (kv.Storage, error) {
+func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.Storage, error) {
 	mc.Lock()
 	defer mc.Unlock()
 	d.setDefaultAndOptions(options...)
@@ -222,7 +216,7 @@ func (d TiKVDriver) OpenWithOptions(path string, options ...Option) (kv.Storage,
 		return nil, errors.Trace(err)
 	}
 
-	store := &tikvStore{
+	store := &hbaseStore{
 		KVStore:   s,
 		etcdAddrs: etcdAddrs,
 		tlsConfig: tlsConfig,
@@ -232,11 +226,11 @@ func (d TiKVDriver) OpenWithOptions(path string, options ...Option) (kv.Storage,
 		codec:     codec,
 	}
 
-	mc.cache[uuid] = store
+	mc.hbaseCache[uuid] = store
 	return store, nil
 }
 
-type tikvStore struct {
+type hbaseStore struct {
 	*tikv.KVStore
 	etcdAddrs []string
 	tlsConfig *tls.Config
@@ -248,21 +242,21 @@ type tikvStore struct {
 }
 
 // Name gets the name of the storage engine
-func (s *tikvStore) Name() string {
-	return "TiKV"
+func (s *hbaseStore) Name() string {
+	return "HBase"
 }
 
 // Describe returns of brief introduction of the storage
-func (s *tikvStore) Describe() string {
-	return "TiKV is a distributed transactional key-value database"
+func (s *hbaseStore) Describe() string {
+	return "HBase is a distributed transactional key-value database"
 }
 
-var ldflagGetEtcdAddrsFromConfig = "0" // 1:Yes, otherwise:No
+// var ldflagGetEtcdAddrsFromConfig = "0" // 1:Yes, otherwise:No
 
-const getAllMembersBackoff = 5000
+// const getAllMembersBackoff = 5000
 
 // EtcdAddrs returns etcd server addresses.
-func (s *tikvStore) EtcdAddrs() ([]string, error) {
+func (s *hbaseStore) EtcdAddrs() ([]string, error) {
 	if s.etcdAddrs == nil {
 		return nil, nil
 	}
@@ -305,12 +299,12 @@ func (s *tikvStore) EtcdAddrs() ([]string, error) {
 }
 
 // TLSConfig returns the tls config to connect to etcd.
-func (s *tikvStore) TLSConfig() *tls.Config {
+func (s *hbaseStore) TLSConfig() *tls.Config {
 	return s.tlsConfig
 }
 
 // StartGCWorker starts GC worker, it's called in BootstrapSession, don't call this function more than once.
-func (s *tikvStore) StartGCWorker() error {
+func (s *hbaseStore) StartGCWorker() error {
 	if !s.enableGC {
 		return nil
 	}
@@ -324,16 +318,16 @@ func (s *tikvStore) StartGCWorker() error {
 	return nil
 }
 
-func (s *tikvStore) GetClient() kv.Client {
+func (s *hbaseStore) GetClient() kv.Client {
 	return s.coprStore.GetClient()
 }
 
-func (s *tikvStore) GetMPPClient() kv.MPPClient {
+func (s *hbaseStore) GetMPPClient() kv.MPPClient {
 	return s.coprStore.GetMPPClient()
 }
 
 // Close and unregister the store.
-func (s *tikvStore) Close() error {
+func (s *hbaseStore) Close() error {
 	mc.Lock()
 	defer mc.Unlock()
 	delete(mc.cache, s.UUID())
@@ -346,12 +340,12 @@ func (s *tikvStore) Close() error {
 }
 
 // GetMemCache return memory manager of the storage
-func (s *tikvStore) GetMemCache() kv.MemManager {
+func (s *hbaseStore) GetMemCache() kv.MemManager {
 	return s.memCache
 }
 
 // Begin a global transaction.
-func (s *tikvStore) Begin(opts ...tikv.TxnOption) (kv.Transaction, error) {
+func (s *hbaseStore) Begin(opts ...tikv.TxnOption) (kv.Transaction, error) {
 	txn, err := s.KVStore.Begin(opts...)
 	if err != nil {
 		return nil, derr.ToTiDBErr(err)
@@ -361,23 +355,23 @@ func (s *tikvStore) Begin(opts ...tikv.TxnOption) (kv.Transaction, error) {
 
 // GetSnapshot gets a snapshot that is able to read any data which data is <= ver.
 // if ver is MaxVersion or > current max committed version, we will use current version for this snapshot.
-func (s *tikvStore) GetSnapshot(ver kv.Version) kv.Snapshot {
+func (s *hbaseStore) GetSnapshot(ver kv.Version) kv.Snapshot {
 	return txn_driver.NewSnapshot(s.KVStore.GetSnapshot(ver.Ver))
 }
 
 // CurrentVersion returns current max committed version with the given txnScope (local or global).
-func (s *tikvStore) CurrentVersion(txnScope string) (kv.Version, error) {
+func (s *hbaseStore) CurrentVersion(txnScope string) (kv.Version, error) {
 	ver, err := s.KVStore.CurrentTimestamp(txnScope)
 	return kv.NewVersion(ver), derr.ToTiDBErr(err)
 }
 
 // ShowStatus returns the specified status of the storage
-func (s *tikvStore) ShowStatus(ctx context.Context, key string) (interface{}, error) {
+func (s *hbaseStore) ShowStatus(ctx context.Context, key string) (interface{}, error) {
 	return nil, kv.ErrNotImplemented
 }
 
 // GetLockWaits get return lock waits info
-func (s *tikvStore) GetLockWaits() ([]*deadlockpb.WaitForEntry, error) {
+func (s *hbaseStore) GetLockWaits() ([]*deadlockpb.WaitForEntry, error) {
 	stores := s.GetRegionCache().GetStoresByType(tikvrpc.TiKV)
 	//nolint: prealloc
 	var result []*deadlockpb.WaitForEntry
@@ -397,6 +391,6 @@ func (s *tikvStore) GetLockWaits() ([]*deadlockpb.WaitForEntry, error) {
 	return result, nil
 }
 
-func (s *tikvStore) GetCodec() tikv.Codec {
+func (s *hbaseStore) GetCodec() tikv.Codec {
 	return s.codec
 }

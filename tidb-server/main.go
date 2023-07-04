@@ -321,6 +321,8 @@ func registerStores() {
 	terror.MustNil(err)
 	err = kvstore.Register("unistore", mockstore.EmbedUnistoreDriver{})
 	terror.MustNil(err)
+	err = kvstore.Register("hbase", driver.HBaseDriver{})
+	terror.MustNil(err)
 }
 
 func registerMetrics() {
