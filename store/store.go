@@ -15,7 +15,6 @@
 package store
 
 import (
-	"net/url"
 	"strings"
 	"sync"
 
@@ -60,12 +59,14 @@ func New(path string) (kv.Storage, error) {
 }
 
 func newStoreWithRetry(path string, maxRetries int) (kv.Storage, error) {
-	storeURL, err := url.Parse(path)
-	if err != nil {
-		return nil, err
-	}
+	// storeURL, err := url.Parse(path)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	name := strings.ToLower(storeURL.Scheme)
+	// name := strings.ToLower(storeURL.Scheme)
+	var err error = nil
+	name := "hbase"
 	d, ok := loadDriver(name)
 	if !ok {
 		return nil, errors.Errorf("invalid uri format, storage %s is not registered", name)

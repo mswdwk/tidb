@@ -42,13 +42,15 @@ import (
 
 // TiDBDriver implements IDriver.
 type TiDBDriver struct {
-	store kv.Storage
+	store      kv.Storage
+	hbaseStore kv.Storage
 }
 
 // NewTiDBDriver creates a new TiDBDriver.
 func NewTiDBDriver(store kv.Storage) *TiDBDriver {
 	driver := &TiDBDriver{
-		store: store,
+		store:      store,
+		hbaseStore: nil,
 	}
 	return driver
 }

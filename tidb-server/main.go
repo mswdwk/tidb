@@ -349,7 +349,31 @@ func createStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain) {
 	// Bootstrap a session to load information schema.
 	dom, err := session.BootstrapSession(storage)
 	terror.MustNil(err)
+
 	return storage, dom
+}
+
+// hbaseStoreage
+func createHbaseStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain) {
+	cfg := config.GetGlobalConfig()
+	// var fullPath string
+	// if keyspaceName == "" {
+	// 	fullPath = fmt.Sprintf("%s://%s", cfg.Store, cfg.Path)
+	// } else {
+	// 	fullPath = fmt.Sprintf("%s://%s?keyspaceName=%s", cfg.Store, cfg.Path, keyspaceName)
+	// }
+	var err error
+	storage, err := kvstore.New(cfg.HBasePath)
+	terror.MustNil(err)
+	/*copr.GlobalMPPFailedStoreProber.Run()
+	err = infosync.CheckTiKVVersion(storage, *semver.New(versioninfo.TiKVMinVersion))
+	terror.MustNil(err)*/
+	// Bootstrap a session to load information schema.
+	/*dom, err := session.BootstrapSession(storage)
+	terror.MustNil(err)*/
+
+	// return storage, dom
+	return storage, nil
 }
 
 func setupBinlogClient() {
