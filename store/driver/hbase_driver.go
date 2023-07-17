@@ -36,6 +36,8 @@ import (
 	"github.com/tikv/client-go/v2/tikvrpc"
 	"github.com/tikv/client-go/v2/util"
 	pd "github.com/tikv/pd/client"
+	"github.com/tsuna/gohbase"
+	"github.com/tsuna/gohbase/hrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -135,6 +137,7 @@ func (d *HBaseDriver) setDefaultAndOptions(options ...HBaseOption) {
 // OpenWithOptions is used by other program that use tidb as a library, to avoid modifying GlobalConfig
 // unspecified options will be set to global config
 func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.Storage, error) {
+	fmt.Printf("hbasedirver open path=%s, time %s\n", path, time.Now())
 	mc.Lock()
 	defer mc.Unlock()
 	d.setDefaultAndOptions(options...)
@@ -163,8 +166,9 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 	}
 
 	// FIXME: uuid will be a very long and ugly string, simplify it.
-	uuid := fmt.Sprintf("tikv-%v", pdCli.GetClusterID(context.TODO()))
-	if store, ok := mc.cache[uuid]; ok {
+	uuid := fmt.Sprintf("hbase-%v", pdCli.GetClusterID(context.TODO()))
+	fmt.Printf("uuid=%s\n", uuid)
+	if store, ok := mc.hbaseCache[uuid]; ok {
 		return store, nil
 	}
 
@@ -216,14 +220,29 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 		return nil, errors.Trace(err)
 	}
 
+	hbaseClient := gohbase.NewClient(path)
+	v := map[string]map[string][]byte{
+		"cf": map[string][]byte{
+			"q1": []byte(time.Now().String()),
+			"q2": nil,
+		},
+	}
+
+	putRequest, err := hrpc.NewPutStr(context.Background(), "tidb", "1", v)
+	_, err = hbaseClient.Put(putRequest)
+	if err != nil {
+		fmt.Println("hbase put failed: ", err)
+	}
+
 	store := &hbaseStore{
-		KVStore:   s,
-		etcdAddrs: etcdAddrs,
-		tlsConfig: tlsConfig,
-		memCache:  kv.NewCacheDB(),
-		enableGC:  !disableGC,
-		coprStore: coprStore,
-		codec:     codec,
+		KVStore:     s,
+		etcdAddrs:   etcdAddrs,
+		tlsConfig:   tlsConfig,
+		memCache:    kv.NewCacheDB(),
+		enableGC:    !disableGC,
+		coprStore:   coprStore,
+		codec:       codec,
+		hbaseClient: hbaseClient,
 	}
 
 	mc.hbaseCache[uuid] = store
@@ -232,13 +251,14 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 
 type hbaseStore struct {
 	*tikv.KVStore
-	etcdAddrs []string
-	tlsConfig *tls.Config
-	memCache  kv.MemManager // this is used to query from memory
-	enableGC  bool
-	gcWorker  *gcworker.GCWorker
-	coprStore *copr.Store
-	codec     tikv.Codec
+	etcdAddrs   []string
+	tlsConfig   *tls.Config
+	memCache    kv.MemManager // this is used to query from memory
+	enableGC    bool
+	gcWorker    *gcworker.GCWorker
+	coprStore   *copr.Store
+	codec       tikv.Codec
+	hbaseClient gohbase.Client
 }
 
 // Name gets the name of the storage engine
@@ -330,7 +350,7 @@ func (s *hbaseStore) GetMPPClient() kv.MPPClient {
 func (s *hbaseStore) Close() error {
 	mc.Lock()
 	defer mc.Unlock()
-	delete(mc.cache, s.UUID())
+	delete(mc.hbaseCache, s.UUID())
 	if s.gcWorker != nil {
 		s.gcWorker.Close()
 	}

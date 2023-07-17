@@ -342,7 +342,7 @@ func createStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain) {
 	} else {
 		fullPath = fmt.Sprintf("%s://%s?keyspaceName=%s", cfg.Store, cfg.Path, keyspaceName)
 	}
-	fmt.Println("HbasePath:", cfg.HbasePath)
+
 	var err error
 	storage, err := kvstore.New(fullPath)
 	terror.MustNil(err)
@@ -366,7 +366,8 @@ func createHbaseStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain)
 	// 	fullPath = fmt.Sprintf("%s://%s?keyspaceName=%s", cfg.Store, cfg.Path, keyspaceName)
 	// }
 	var err error
-	storage, err := kvstore.New(cfg.HbasePath)
+	fmt.Println("HbasePath: ", cfg.HbasePath)
+	storage, err := kvstore.NewHbaseStoreWithRetry(cfg.HbasePath, util.DefaultMaxRetries)
 	terror.MustNil(err)
 	/*copr.GlobalMPPFailedStoreProber.Run()
 	err = infosync.CheckTiKVVersion(storage, *semver.New(versioninfo.TiKVMinVersion))

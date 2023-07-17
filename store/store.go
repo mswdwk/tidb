@@ -15,6 +15,7 @@
 package store
 
 import (
+	"net/url"
 	"strings"
 	"sync"
 
@@ -59,14 +60,13 @@ func New(path string) (kv.Storage, error) {
 }
 
 func newStoreWithRetry(path string, maxRetries int) (kv.Storage, error) {
-	// storeURL, err := url.Parse(path)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	storeURL, err := url.Parse(path)
+	if err != nil {
+		return nil, err
+	}
 
-	// name := strings.ToLower(storeURL.Scheme)
-	var err error = nil
-	name := "hbase"
+	name := strings.ToLower(storeURL.Scheme)
+
 	d, ok := loadDriver(name)
 	if !ok {
 		return nil, errors.Errorf("invalid uri format, storage %s is not registered", name)
@@ -121,4 +121,33 @@ func IsKeyspaceNotExistError(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), pdpb.ErrorType_ENTRY_NOT_FOUND.String())
+}
+
+func NewHbaseStoreWithRetry(path string, maxRetries int) (kv.Storage, error) {
+	// storeURL, err := url.Parse(path)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// name := strings.ToLower(storeURL.Scheme)
+	var err error = nil
+	name := "hbase"
+	d, ok := loadDriver(name)
+	if !ok {
+		return nil, errors.Errorf("invalid uri format, storage %s is not registered, path= %s", name, path)
+	}
+
+	var s kv.Storage
+	err = util.RunWithRetry(maxRetries, util.RetryInterval, func() (bool, error) {
+		logutil.BgLogger().Info("new store", zap.String("path", path))
+		s, err = d.Open(path)
+		return isNewStoreRetryableError(err), err
+	})
+
+	if err == nil {
+		logutil.BgLogger().Info("new store with retry success")
+	} else {
+		logutil.BgLogger().Warn("new store with retry failed", zap.Error(err))
+	}
+	return s, errors.Trace(err)
 }
