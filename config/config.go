@@ -304,7 +304,7 @@ type Config struct {
 	TiDBMaxReuseColumn uint32 `toml:"tidb-max-reuse-column" json:"tidb-max-reuse-column"`
 	// TiDBEnableExitCheck indicates whether exit-checking in domain for background process
 	TiDBEnableExitCheck bool   `toml:"tidb-enable-exit-check" json:"tidb-enable-exit-check"`
-	HBasePath           string `toml:"hbase-path" json:"hbase-path"`
+	HbasePath           string `toml:"hbase-path" json:"hbase-path"`
 }
 
 // UpdateTempStoragePath is to update the `TempStoragePath` if port/statusPort was changed

@@ -127,6 +127,7 @@ const (
 	nmInitializeSQLFile           = "initialize-sql-file"
 	nmDisconnectOnExpiredPassword = "disconnect-on-expired-password"
 	nmKeyspaceName                = "keyspace-name"
+	nmHbasePath                   = "hbase-path"
 )
 
 var (
@@ -176,6 +177,7 @@ var (
 	initializeSQLFile           = flag.String(nmInitializeSQLFile, "", "SQL file to execute on first bootstrap")
 	disconnectOnExpiredPassword = flagBoolean(nmDisconnectOnExpiredPassword, true, "the server disconnects the client when the password is expired")
 	keyspaceName                = flag.String(nmKeyspaceName, "", "keyspace name.")
+	hbasePath                   = flag.String(nmHbasePath, "127.0.0.1:2181", "hbase path")
 )
 
 func main() {
@@ -340,6 +342,7 @@ func createStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain) {
 	} else {
 		fullPath = fmt.Sprintf("%s://%s?keyspaceName=%s", cfg.Store, cfg.Path, keyspaceName)
 	}
+	fmt.Println("HbasePath:", cfg.HbasePath)
 	var err error
 	storage, err := kvstore.New(fullPath)
 	terror.MustNil(err)
@@ -363,7 +366,7 @@ func createHbaseStoreAndDomain(keyspaceName string) (kv.Storage, *domain.Domain)
 	// 	fullPath = fmt.Sprintf("%s://%s?keyspaceName=%s", cfg.Store, cfg.Path, keyspaceName)
 	// }
 	var err error
-	storage, err := kvstore.New(cfg.HBasePath)
+	storage, err := kvstore.New(cfg.HbasePath)
 	terror.MustNil(err)
 	/*copr.GlobalMPPFailedStoreProber.Run()
 	err = infosync.CheckTiKVVersion(storage, *semver.New(versioninfo.TiKVMinVersion))
@@ -623,6 +626,10 @@ func overrideConfig(cfg *config.Config) {
 	if actualFlags[nmKeyspaceName] {
 		cfg.KeyspaceName = *keyspaceName
 	}
+
+	if actualFlags[nmHbasePath] {
+		cfg.HbasePath = *hbasePath
+	}
 }
 
 func setVersions() {
@@ -835,7 +842,9 @@ func printInfo() {
 
 func createServer(storage kv.Storage, dom *domain.Domain) *server.Server {
 	cfg := config.GetGlobalConfig()
-	driver := server.NewTiDBDriver(storage)
+	hbaseStorage, _ := createHbaseStoreAndDomain("")
+	driver := server.NewTiDBHbaseDriver(storage, hbaseStorage)
+
 	svr, err := server.NewServer(cfg, driver)
 	// Both domain and storage have started, so we have to clean them before exiting.
 	if err != nil {

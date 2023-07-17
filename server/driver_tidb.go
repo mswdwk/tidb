@@ -55,6 +55,15 @@ func NewTiDBDriver(store kv.Storage) *TiDBDriver {
 	return driver
 }
 
+// NewTiDBDriver creates a new TiDBDriver.
+func NewTiDBHbaseDriver(store, hbaseStore kv.Storage) *TiDBDriver {
+	driver := &TiDBDriver{
+		store:      store,
+		hbaseStore: hbaseStore,
+	}
+	return driver
+}
+
 // TiDBContext implements QueryCtx.
 type TiDBContext struct {
 	session.Session
