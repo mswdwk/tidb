@@ -34,13 +34,9 @@ import (
 	"github.com/tikv/client-go/v2/config"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
-	"github.com/tikv/client-go/v2/util"
-	pd "github.com/tikv/pd/client"
 	"github.com/tsuna/gohbase"
 	"github.com/tsuna/gohbase/hrpc"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
 )
 
 /*
@@ -140,7 +136,7 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 	fmt.Printf("hbasedirver open path=%s, time %s\n", path, time.Now())
 	mc.Lock()
 	defer mc.Unlock()
-	d.setDefaultAndOptions(options...)
+	/*d.setDefaultAndOptions(options...)
 	etcdAddrs, disableGC, keyspaceName, err := config.ParsePath(path)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -164,61 +160,63 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	*/
 	// FIXME: uuid will be a very long and ugly string, simplify it.
-	uuid := fmt.Sprintf("hbase-%v", pdCli.GetClusterID(context.TODO()))
-	fmt.Printf("uuid=%s\n", uuid)
+	// uuid := fmt.Sprintf("hbase-%v", pdCli.GetClusterID(context.TODO()))
+	uuid := fmt.Sprintf("hbase-test")
+	fmt.Printf("hbase uuid=%s\n", uuid)
 	if store, ok := mc.hbaseCache[uuid]; ok {
 		return store, nil
 	}
-
-	tlsConfig, err := d.security.ToTLSConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	spkv, err := tikv.NewEtcdSafePointKV(etcdAddrs, tlsConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// ---------------- keyspace logic  ----------------
-	var (
-		pdClient *tikv.CodecPDClient
-	)
-
-	if keyspaceName == "" {
-		logutil.BgLogger().Info("using API V1.")
-		pdClient = tikv.NewCodecPDClient(tikv.ModeTxn, pdCli)
-	} else {
-		logutil.BgLogger().Info("using API V2.", zap.String("keyspaceName", keyspaceName))
-		pdClient, err = tikv.NewCodecPDClientWithKeyspace(tikv.ModeTxn, pdCli, keyspaceName)
+	/*
+		tlsConfig, err := d.security.ToTLSConfig()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
 
-	codec := pdClient.GetCodec()
+		spkv, err := tikv.NewEtcdSafePointKV(etcdAddrs, tlsConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	rpcClient := tikv.NewRPCClient(
-		tikv.WithSecurity(d.security),
-		tikv.WithCodec(codec),
-	)
+		// ---------------- keyspace logic  ----------------
+		var (
+			pdClient *tikv.CodecPDClient
+		)
 
-	s, err := tikv.NewKVStore(uuid, pdClient, spkv, rpcClient)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+		if keyspaceName == "" {
+			logutil.BgLogger().Info("using API V1.")
+			pdClient = tikv.NewCodecPDClient(tikv.ModeTxn, pdCli)
+		} else {
+			logutil.BgLogger().Info("using API V2.", zap.String("keyspaceName", keyspaceName))
+			pdClient, err = tikv.NewCodecPDClientWithKeyspace(tikv.ModeTxn, pdCli, keyspaceName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 
-	// ---------------- keyspace logic  ----------------
-	if d.txnLocalLatches.Enabled {
-		s.EnableTxnLocalLatches(d.txnLocalLatches.Capacity)
-	}
-	coprCacheConfig := &config.GetGlobalConfig().TiKVClient.CoprCache
-	coprStore, err := copr.NewStore(s, coprCacheConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+		codec := pdClient.GetCodec()
+
+		rpcClient := tikv.NewRPCClient(
+			tikv.WithSecurity(d.security),
+			tikv.WithCodec(codec),
+		)
+
+		s, err := tikv.NewKVStore(uuid, pdClient, spkv, rpcClient)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// ---------------- keyspace logic  ----------------
+		if d.txnLocalLatches.Enabled {
+			s.EnableTxnLocalLatches(d.txnLocalLatches.Capacity)
+		}
+		coprCacheConfig := &config.GetGlobalConfig().TiKVClient.CoprCache
+		coprStore, err := copr.NewStore(s, coprCacheConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	*/
 
 	hbaseClient := gohbase.NewClient(path)
 	v := map[string]map[string][]byte{
@@ -228,7 +226,7 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 		},
 	}
 
-	putRequest, err := hrpc.NewPutStr(context.Background(), "tidb", "1", v)
+	putRequest, err := hrpc.NewPutStr(context.Background(), "tidb", "row1", v)
 	_, err = hbaseClient.Put(putRequest)
 	if err != nil {
 		fmt.Println("hbase put failed: ", err)
@@ -239,13 +237,14 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 		// etcdAddrs:   etcdAddrs,
 		// tlsConfig:   tlsConfig,
 		// memCache:    kv.NewCacheDB(),
-		enableGC:  !disableGC,
-		coprStore: coprStore,
+		// enableGC:  !disableGC,
+		// coprStore: coprStore,
 		// codec:       codec,
 		hbaseClient: hbaseClient,
 	}
 
 	mc.hbaseCache[uuid] = store
+	fmt.Println("create hbase client ok!")
 	return store, nil
 }
 
