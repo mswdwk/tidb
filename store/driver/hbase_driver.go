@@ -235,13 +235,13 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 	}
 
 	store := &hbaseStore{
-		KVStore:     s,
-		etcdAddrs:   etcdAddrs,
-		tlsConfig:   tlsConfig,
-		memCache:    kv.NewCacheDB(),
-		enableGC:    !disableGC,
-		coprStore:   coprStore,
-		codec:       codec,
+		// KVStore:     s,
+		// etcdAddrs:   etcdAddrs,
+		// tlsConfig:   tlsConfig,
+		// memCache:    kv.NewCacheDB(),
+		enableGC:  !disableGC,
+		coprStore: coprStore,
+		// codec:       codec,
 		hbaseClient: hbaseClient,
 	}
 

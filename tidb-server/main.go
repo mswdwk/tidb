@@ -843,7 +843,10 @@ func printInfo() {
 
 func createServer(storage kv.Storage, dom *domain.Domain) *server.Server {
 	cfg := config.GetGlobalConfig()
-	hbaseStorage, _ := createHbaseStoreAndDomain("")
+	hbaseStorage, e := createHbaseStoreAndDomain("")
+	if e != nil {
+		fmt.Println("ERROR: create hbase store failed: ", e)
+	}
 	driver := server.NewTiDBHbaseDriver(storage, hbaseStorage)
 
 	svr, err := server.NewServer(cfg, driver)
