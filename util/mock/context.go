@@ -50,6 +50,7 @@ var (
 type Context struct {
 	txn           wrapTxn    // mock global variable
 	Store         kv.Storage // mock global variable
+	hbaseStore    kv.Storage // mock global variable
 	ctx           context.Context
 	sm            util.SessionManager
 	is            sessionctx.InfoschemaMetaVersion
@@ -309,6 +310,11 @@ func (c *Context) CommitTxn(ctx context.Context) error {
 // GetStore gets the store of session.
 func (c *Context) GetStore() kv.Storage {
 	return c.Store
+}
+
+// GetStore gets the store of session.
+func (c *Context) GetHbaseStore() kv.Storage {
+	return c.hbaseStore
 }
 
 // GetSessionManager implements the sessionctx.Context interface.

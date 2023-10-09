@@ -226,7 +226,7 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 		},
 	}
 
-	putRequest, err := hrpc.NewPutStr(context.Background(), "tidb", "row1", v)
+	putRequest, err := hrpc.NewPutStr(context.Background(), "tidb", "row123", v)
 	_, err = hbaseClient.Put(putRequest)
 	if err != nil {
 		fmt.Println("hbase put failed: ", err)

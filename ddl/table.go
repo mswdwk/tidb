@@ -84,6 +84,7 @@ func createTable(d *ddlCtx, t *meta.Meta, job *model.Job, fkCheck bool) (*model.
 		if err != nil {
 			return tbInfo, errors.Trace(err)
 		}
+		// create hbase table here
 
 		failpoint.Inject("checkOwnerCheckAllVersionsWaitTime", func(val failpoint.Value) {
 			if val.(bool) {

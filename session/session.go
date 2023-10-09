@@ -252,7 +252,8 @@ type session struct {
 	currentCtx  context.Context // only use for runtime.trace, Please NEVER use it.
 	currentPlan plannercore.Plan
 
-	store kv.Storage
+	store      kv.Storage
+	hbaseStore kv.Storage
 
 	preparedPlanCache    sessionctx.PlanCache
 	nonPreparedPlanCache sessionctx.PlanCache
@@ -3740,6 +3741,11 @@ func (s *session) RefreshTxnCtx(ctx context.Context) error {
 // GetStore gets the store of session.
 func (s *session) GetStore() kv.Storage {
 	return s.store
+}
+
+// GetStore gets the store of session.
+func (s *session) GetHbaseStore() kv.Storage {
+	return s.hbaseStore
 }
 
 func (s *session) ShowProcess() *util.ProcessInfo {
