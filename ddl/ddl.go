@@ -325,6 +325,7 @@ type ddlCtx struct {
 	cancel       context.CancelFunc
 	uuid         string
 	store        kv.Storage
+	hbaseStore   kv.Storage
 	ownerManager owner.Manager
 	schemaSyncer syncer.SchemaSyncer
 	ddlJobDoneCh chan struct{}

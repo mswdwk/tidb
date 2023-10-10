@@ -25,6 +25,7 @@ import (
 	"github.com/pingcap/errors"
 	deadlockpb "github.com/pingcap/kvproto/pkg/deadlock"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
+	"github.com/pingcap/tidb/hbase"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/store/copr"
 	derr "github.com/pingcap/tidb/store/driver/error"
@@ -35,7 +36,6 @@ import (
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
 	"github.com/tsuna/gohbase"
-	"github.com/tsuna/gohbase/hrpc"
 	"go.uber.org/zap"
 )
 
@@ -217,17 +217,9 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 			return nil, errors.Trace(err)
 		}
 	*/
-
-	hbaseClient := gohbase.NewClient(path)
-	v := map[string]map[string][]byte{
-		"cf": map[string][]byte{
-			"q1": []byte(time.Now().String()),
-			"q2": nil,
-		},
-	}
-
-	putRequest, err := hrpc.NewPutStr(context.Background(), "tidb", "row123", v)
-	_, err = hbaseClient.Put(putRequest)
+	err := hbase.InitHbaseClient(path)
+	hbaseClient := hbase.GetHbaseClient()
+	hbaseAdminClient := hbase.GetHbaseAdminClient()
 	if err != nil {
 		fmt.Println("hbase put failed: ", err)
 	}
@@ -240,7 +232,8 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 		// enableGC:  !disableGC,
 		// coprStore: coprStore,
 		// codec:       codec,
-		hbaseClient: hbaseClient,
+		hbaseClient:      hbaseClient,
+		hbaseAdminClient: hbaseAdminClient,
 	}
 
 	mc.hbaseCache[uuid] = store
@@ -250,14 +243,15 @@ func (d HBaseDriver) OpenWithOptions(path string, options ...HBaseOption) (kv.St
 
 type hbaseStore struct {
 	*tikv.KVStore
-	etcdAddrs   []string
-	tlsConfig   *tls.Config
-	memCache    kv.MemManager // this is used to query from memory
-	enableGC    bool
-	gcWorker    *gcworker.GCWorker
-	coprStore   *copr.Store
-	codec       tikv.Codec
-	hbaseClient gohbase.Client
+	etcdAddrs        []string
+	tlsConfig        *tls.Config
+	memCache         kv.MemManager // this is used to query from memory
+	enableGC         bool
+	gcWorker         *gcworker.GCWorker
+	coprStore        *copr.Store
+	codec            tikv.Codec
+	hbaseClient      gohbase.Client
+	hbaseAdminClient gohbase.AdminClient
 }
 
 // Name gets the name of the storage engine

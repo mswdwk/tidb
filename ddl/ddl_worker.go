@@ -363,6 +363,7 @@ func (d *ddl) addBatchDDLJobs2Table(tasks []*limitJobTask) error {
 		startTS = txn.StartTS()
 		return nil
 	})
+	// d.hbaseStore
 	if err == nil {
 		jobTasks := make([]*model.Job, len(tasks))
 		for i, task := range tasks {

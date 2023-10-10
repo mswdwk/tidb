@@ -168,20 +168,20 @@ func (txn *tikvTxn) IterReverse(k kv.Key) (iter kv.Iterator, err error) {
 // Do not use len(value) == 0 or value == nil to represent non-exist.
 // If a key doesn't exist, there shouldn't be any corresponding entry in the result map.
 func (txn *tikvTxn) BatchGet(ctx context.Context, keys []kv.Key) (map[string][]byte, error) {
-	fmt.Println("DEBUG_BATCH_GET: k=", keys)
+	fmt.Println("DEBUG_BATCH_GET: len(k)=", len(keys), ",keys=", keys)
 	r, ctx := tracing.StartRegionEx(ctx, "tikvTxn.BatchGet")
 	defer r.End()
 	return NewBufferBatchGetter(txn.GetMemBuffer(), nil, txn.GetSnapshot()).BatchGet(ctx, keys)
 }
 
 func (txn *tikvTxn) Delete(k kv.Key) error {
-	fmt.Println("DEBUG_DELETE: k=", k)
+	fmt.Println("DEBUG_DELETE: k=", string(k))
 	err := txn.KVTxn.Delete(k)
 	return derr.ToTiDBErr(err)
 }
 
 func (txn *tikvTxn) Get(ctx context.Context, k kv.Key) ([]byte, error) {
-	fmt.Println("DEBUG_GET: k=", k)
+	fmt.Println("DEBUG_GET: k=", string(k))
 	val, err := txn.GetMemBuffer().Get(ctx, k)
 	if kv.ErrNotExist.Equal(err) {
 		val, err = txn.GetSnapshot().Get(ctx, k)
@@ -195,7 +195,7 @@ func (txn *tikvTxn) Get(ctx context.Context, k kv.Key) ([]byte, error) {
 }
 
 func (txn *tikvTxn) Set(k kv.Key, v []byte) error {
-	fmt.Println("DEBUG_SET: k=", k, ",v=", v)
+	fmt.Println("DEBUG_SET: k=", string(k), ",\nv=", string(v))
 	err := txn.KVTxn.Set(k, v)
 	return derr.ToTiDBErr(err)
 }
