@@ -22,6 +22,7 @@ import (
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/distsql"
 	"github.com/pingcap/tidb/expression"
+	"github.com/pingcap/tidb/hbase"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/model"
@@ -320,6 +321,7 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 
 	key := tablecodec.EncodeRowKeyWithHandle(tblID, e.handle)
 	val, err := e.getAndLock(ctx, key)
+
 	if err != nil {
 		return err
 	}
@@ -345,6 +347,13 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 		}
 		return nil
 	}
+
+	// try get data from hbase
+	fmt.Println("prepare to get rowkey from tikv, table ", e.tblInfo.Name.String(), ", key=", key.String(),
+		"tikv val=", string(val))
+	_, _ = hbase.GetOneRowkey(e.tblInfo.Name.String(), key.String())
+	// convert hrpcVal to tikv value []byte
+
 	err = DecodeRowValToChunk(e.base().ctx, e.schema, e.tblInfo, e.handle, val, req, e.rowDecoder)
 	if err != nil {
 		return err
