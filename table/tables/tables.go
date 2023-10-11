@@ -29,6 +29,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
+	"github.com/pingcap/tidb/hbase"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
 	"github.com/pingcap/tidb/meta/autoid"
@@ -773,7 +774,7 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 	defer memBuffer.Cleanup(sh)
 
 	sessVars := sctx.GetSessionVars()
-
+	var fieldsValue = make(map[string][]byte)
 	for _, col := range t.WritableCols() {
 		var value types.Datum
 		// In column type change, since we have set the origin default value for changing col, but
@@ -815,6 +816,10 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 		if !t.canSkip(col, &value) {
 			colIDs = append(colIDs, col.ID)
 			row = append(row, value)
+		}
+		fieldsValue[col.Name.String()], err = value.ToBytes()
+		if nil != err {
+			fmt.Println("failed convert value to bytes, col=", col.Name.String())
 		}
 	}
 
@@ -868,6 +873,13 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("insert into table ", t.Meta().Name, ", key ", string(key), ",value ", string(value))
+
+	for i, oneRow := range row {
+		fmt.Println("add record: row id ", i, ",value ", oneRow.GetValue())
+	}
+	hbase.PutOneRowOneCf(t.Meta().Name.String(), key.String(), "cf", fieldsValue)
 
 	failpoint.Inject("addRecordForceAssertExist", func() {
 		// Assert the key exists while it actually doesn't. This is helpful to test if assertion takes effect.
@@ -1139,6 +1151,9 @@ func (t *TableCommon) RemoveRecord(ctx sessionctx.Context, h kv.Handle, r []type
 	if err != nil {
 		return err
 	}
+	// hbase delete one key
+	rowkey := t.RecordKey(h)
+	hbase.DeleteOneRow(t.Meta().Name.String(), rowkey.String())
 
 	if m := t.Meta(); m.TempTableType != model.TempTableNone {
 		if tmpTable := addTemporaryTable(ctx, m); tmpTable != nil {

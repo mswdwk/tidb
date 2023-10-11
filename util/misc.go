@@ -118,6 +118,7 @@ func Recover(metricsLabel, funcInfo string, recoverFn func(), quit bool) {
 		zap.String("funcInfo", funcInfo),
 		zap.Reflect("r", r),
 		zap.Stack("stack"))
+	fmt.Println("error stack=", zap.Stack("stack").String)
 	metrics.PanicCounter.WithLabelValues(metricsLabel).Inc()
 	if quit {
 		// Wait for metrics to be pushed.
