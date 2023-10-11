@@ -874,7 +874,7 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 		return nil, err
 	}
 
-	fmt.Println("insert into table ", t.Meta().Name, ", key ", string(key), ",value ", string(value))
+	fmt.Println("prepare insert into table ", t.Meta().Name, ", key ", string(key), ",value ", string(value))
 
 	for i, oneRow := range row {
 		fmt.Println("add record: row id ", i, ",value ", oneRow.GetValue())

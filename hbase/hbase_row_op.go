@@ -2,6 +2,7 @@ package hbase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/tsuna/gohbase/hrpc"
@@ -27,10 +28,11 @@ func displayCells(result *hrpc.Result) {
 	}
 }
 
-func GetOneRowkey(tablename string, rowkey string) {
+func GetOneRowkey(tablename string, rowkey string) (*hrpc.Result, error) {
 	if nil == G_HbaseClient {
+		err := errors.New("hbase cleint is nil")
 		fmt.Println("error: hbase client is nil")
-		return
+		return nil, err
 	}
 	// hrpc.MaxVersions(3)
 	var getRequest, err = hrpc.NewGetStr(context.Background(), tablename, rowkey, hrpc.MaxVersions(3))
@@ -38,11 +40,12 @@ func GetOneRowkey(tablename string, rowkey string) {
 	getRsp, err := G_HbaseClient.Get(getRequest) // Get()方法返回查询结果。通过客户端真正读取数据
 
 	if err != nil {
-		fmt.Println("hbase get client error:" + err.Error())
-		return
+		fmt.Println("hbase client get rowkey error:"+err.Error(), ",tablename ", tablename)
+		return nil, err
 	}
-	fmt.Printf("get table %s rowkey %s\n", tablename, rowkey)
+	fmt.Printf("get hbase table %s rowkey %s\n", tablename, rowkey)
 	displayCells(getRsp)
+	return getRsp, nil
 }
 
 func PutOneRowOneFiled(tablename string, rowkey string, cf string, field string, value string) {
