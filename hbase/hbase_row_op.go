@@ -9,9 +9,9 @@ import (
 )
 
 func displayCells(result *hrpc.Result) {
-	for k, v := range result.Cells { // v结构体中的Value保存了真正的数据
+	for i, v := range result.Cells { // v结构体中的Value保存了真正的数据
 		// value := v.Value
-		fmt.Printf("key:" + string(k))
+		fmt.Printf("i:" + string(i))
 		//fmt.Printf("v=%V"+ *v)
 		fmt.Printf("\tRow:" + string(v.Row))
 		fmt.Printf("\tFamily:" + string(v.Family))

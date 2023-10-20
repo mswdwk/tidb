@@ -37,9 +37,12 @@ import (
 	"github.com/pingcap/tidb/util/codec"
 	"github.com/pingcap/tidb/util/dbterror"
 	"github.com/pingcap/tidb/util/execdetails"
+	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/logutil/consistency"
 	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/tikv/client-go/v2/txnkv/txnsnapshot"
+	"github.com/tikv/client-go/v2/util"
+	"github.com/tsuna/gohbase/hrpc"
 )
 
 func (b *executorBuilder) buildPointGet(p *plannercore.PointGetPlan) Executor {
@@ -348,17 +351,49 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 		return nil
 	}
 
-	// try get data from hbase
-	fmt.Println("prepare to get rowkey from tikv, table ", e.tblInfo.Name.String(), ", key=", key.String(),
-		"tikv val=", string(val))
-	_, _ = hbase.GetOneRowkey(e.tblInfo.Name.String(), key.String())
-	// convert hrpcVal to tikv value []byte
+	// judge data source , if it is not for tidb internal,then try get data from hbase
+	cv := ctx.Value(util.RequestSourceKey)
+	if nil != cv {
+		rqs, ok := cv.(util.RequestSource)
+		if ok && rqs.RequestSourceInternal {
+			fmt.Println("got rowkey from tikv table ", e.tblInfo.Name.String(), ", key=", key.String(),
+				"tikv val=", string(val))
+		} else if ok {
+
+		} else {
+			fmt.Println("ctx is unknown")
+		}
+	} else {
+		fmt.Println("ctx is NIL: maybe hbase table " + e.tblInfo.Name.String())
+		logutil.Logger(ctx).Info("prepare to get rowkey from hbase table " + e.tblInfo.Name.String() + ", key=" + key.String() +
+			",tikv val=" + string(val))
+		// TODO: Get dbname/schema as namespace
+		// convert hrpcVal to tikv value []byte
+		if val, _ := hbase.GetOneRowkey(e.tblInfo.Name.String(), key.String()); nil != val {
+			// need to known how to encode to tikv result
+			return hbase2chunk(e, val, req)
+		}
+	}
 
 	err = DecodeRowValToChunk(e.base().ctx, e.schema, e.tblInfo, e.handle, val, req, e.rowDecoder)
 	if err != nil {
 		return err
 	}
 
+	err = table.FillVirtualColumnValue(e.virtualColumnRetFieldTypes, e.virtualColumnIndex,
+		e.schema.Columns, e.columns, e.ctx, req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func hbase2chunk(e *PointGetExecutor, val *hrpc.Result, req *chunk.Chunk) error {
+	logutil.BgLogger().Info("call hrpcResult 2 chunk")
+	err := hbase.HrpcResult2Chunk(e.base().ctx, e.schema, e.tblInfo, e.handle, val, req, e.rowDecoder)
+	if err != nil {
+		return err
+	}
 	err = table.FillVirtualColumnValue(e.virtualColumnRetFieldTypes, e.virtualColumnIndex,
 		e.schema.Columns, e.columns, e.ctx, req)
 	if err != nil {

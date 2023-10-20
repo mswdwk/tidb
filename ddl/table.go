@@ -88,7 +88,9 @@ func createTable(d *ddlCtx, t *meta.Meta, job *model.Job, fkCheck bool) (*model.
 		}
 		// create hbase table here
 		// d.store.
-		fmt.Println("prepare create hbase table here: schema name is ", job.SchemaName, ",table name is ", tbInfo.Name)
+		info_msg := fmt.Sprintf("prepare create hbase table here: schema name is ", job.SchemaName, ",table name is ", tbInfo.Name)
+		fmt.Println(info_msg)
+		logutil.Logger(d.ctx).Info(info_msg)
 		// retrive array tbInfo.Columns
 		for i, col := range tbInfo.Columns {
 			// col = tbInfo.Columns[i]
