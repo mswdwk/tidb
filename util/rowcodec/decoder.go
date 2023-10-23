@@ -17,12 +17,14 @@ package rowcodec
 import (
 	"encoding/binary"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
+	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/codec"
@@ -602,7 +604,7 @@ func (decoder *ChunkDecoder) DecodeColToChunk(colIdx int, col *ColInfo, colData 
 }
 
 // DecodeToChunk decodes a row to chunk. for hbase use
-func (decoder *ChunkDecoder) DecodeToChunk2(rowData map[int64][]byte, handle kv.Handle, chk *chunk.Chunk) error {
+func (decoder *ChunkDecoder) DecodeToChunk2(sc *stmtctx.StatementContext, rowData map[int64][]byte, handle kv.Handle, chk *chunk.Chunk) error {
 	// err := decoder.fromBytes(rowData)
 	// if err != nil {
 	// 	return err
@@ -632,7 +634,7 @@ func (decoder *ChunkDecoder) DecodeToChunk2(rowData map[int64][]byte, handle kv.
 		isNil := false
 		fmt.Println("Hbase data convert colIdx=", colIdx, " col.ID:", col.ID, ",notFound:", notFound, ",isNil:",
 			isNil, ",byte len=", len(colData), "col.Ft.type=", col.Ft.GetType())
-		err := decoder.decodeColToChunk2(colIdx, col, colData, chk)
+		err := decoder.decodeColToChunk2(sc, colIdx, col, colData, chk)
 		if err != nil {
 			fmt.Println("col2chunk failed !,err=", err)
 			return err
@@ -662,25 +664,46 @@ func (decoder *ChunkDecoder) DecodeToChunk2(rowData map[int64][]byte, handle kv.
 	return nil
 }
 
-func (decoder *ChunkDecoder) decodeColToChunk2(colIdx int, col *ColInfo, colData []byte, chk *chunk.Chunk) error {
+func (decoder *ChunkDecoder) decodeColToChunk2(sc *stmtctx.StatementContext, colIdx int, col *ColInfo, colData []byte, chk *chunk.Chunk) error {
 	switch col.Ft.GetType() {
 	case mysql.TypeLonglong, mysql.TypeLong, mysql.TypeInt24, mysql.TypeShort, mysql.TypeTiny:
+		fmt.Println("hbase Int value: ", colData)
 		if mysql.HasUnsignedFlag(col.Ft.GetFlag()) {
-			chk.AppendUint64(colIdx, decodeUint(colData))
+			v, e := strconv.ParseUint(string(colData), 10, 0)
+			if e != nil {
+				fmt.Println("hbase value parse UINT failed! err=", e)
+				return e
+			}
+			chk.AppendUint64(colIdx, v)
 		} else {
-			chk.AppendInt64(colIdx, decodeInt(colData))
+			v, e := strconv.ParseInt(string(colData), 10, 0)
+			if e != nil {
+				fmt.Println("hbase value parse INT failed! err=", e)
+				return e
+			}
+			chk.AppendInt64(colIdx, v)
 		}
 	case mysql.TypeYear:
-		chk.AppendInt64(colIdx, decodeInt(colData))
+		v, e := strconv.ParseInt(string(colData), 10, 0)
+		if e != nil {
+			fmt.Println("hbase value parse INT failed! err=", e)
+			return e
+		}
+		fmt.Println("hbase TypeYear value: ", colData, ",v=", v)
+		chk.AppendInt64(colIdx, v)
 	case mysql.TypeFloat:
-		_, fVal, err := codec.DecodeFloat(colData)
+		fVal, err := strconv.ParseFloat(string(colData), 64)
+		// _, fVal, err := codec.DecodeFloat(floatvar)
 		if err != nil {
+			fmt.Println("hbase value parse Float failed! err=", err)
 			return err
 		}
 		chk.AppendFloat32(colIdx, float32(fVal))
 	case mysql.TypeDouble:
-		_, fVal, err := codec.DecodeFloat(colData)
+		fVal, err := strconv.ParseFloat(string(colData), 64)
+		//_, fVal, err := codec.DecodeFloat(floatvar)
 		if err != nil {
+			fmt.Println("hbase value parse Double failed!")
 			return err
 		}
 		chk.AppendFloat64(colIdx, fVal)
@@ -688,25 +711,36 @@ func (decoder *ChunkDecoder) decodeColToChunk2(colIdx int, col *ColInfo, colData
 		mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:
 		chk.AppendBytes(colIdx, colData)
 	case mysql.TypeNewDecimal:
-		_, dec, _, frac, err := codec.DecodeDecimal(colData)
+		/*_, dec, _, frac, err := codec.DecodeDecimal(colData)
 		if err != nil {
 			return err
 		}
-		if col.Ft.GetDecimal() != types.UnspecifiedLength && frac > col.Ft.GetDecimal() {
+		/*if col.Ft.GetDecimal() != types.UnspecifiedLength && frac > col.Ft.GetDecimal() {
 			to := new(types.MyDecimal)
 			err := dec.Round(to, col.Ft.GetDecimal(), types.ModeHalfUp)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			dec = to
-		}
-		chk.AppendMyDecimal(colIdx, dec)
-	case mysql.TypeDate, mysql.TypeDatetime, mysql.TypeTimestamp:
-		var t types.Time
-		t.SetType(col.Ft.GetType())
-		t.SetFsp(col.Ft.GetDecimal())
-		err := t.FromPackedUint(decodeUint(colData))
+		}*/
+		var dec types.MyDecimal
+		err := dec.FromString(colData)
 		if err != nil {
+			fmt.Println("decode decimal failed! colData=", colData)
+			return err
+		}
+		chk.AppendMyDecimal(colIdx, &dec)
+	case mysql.TypeDate, mysql.TypeDatetime, mysql.TypeTimestamp:
+		// var t types.Time
+		// t.SetType(col.Ft.GetType())
+		// t.SetFsp(col.Ft.GetDecimal())
+		fmt.Println("hbase value parse date/datetime/timestamp ")
+		// string 2 time
+		// sc *stmtctx.StatementContext,
+		t, err := types.ParseTime(sc, string(colData), col.Ft.GetType(), col.Ft.GetDecimal(), nil)
+		// err := t.FromPackedUint(decodeUint(colData))
+		if err != nil {
+			fmt.Println("hbase value parse date/datetime/timestamp failed: err=", err)
 			return err
 		}
 		if col.Ft.GetType() == mysql.TypeTimestamp && decoder.loc != nil && !t.IsZero() {

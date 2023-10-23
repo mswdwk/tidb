@@ -69,7 +69,7 @@ func HrpcResult2Chunk(sctx sessionctx.Context, schema *expression.Schema, tblInf
 
 	// TODO check colData is not nil
 	// err := decoder.DecodeColToChunk(col.Index, col, colData, chk)
-	err := decoder.DecodeToChunk2(kvmap, handle, chk)
+	err := decoder.DecodeToChunk2(sctx.GetSessionVars().StmtCtx, kvmap, handle, chk)
 	if err != nil {
 		return err
 	}
