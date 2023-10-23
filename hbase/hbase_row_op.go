@@ -44,7 +44,7 @@ func GetOneRowkey(tablename string, rowkey string) (*hrpc.Result, error) {
 		return nil, err
 	}
 	fmt.Printf("get hbase table %s rowkey %s\n", tablename, rowkey)
-	displayCells(getRsp)
+	// displayCells(getRsp)
 	return getRsp, nil
 }
 

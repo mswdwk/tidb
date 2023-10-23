@@ -514,3 +514,236 @@ func fieldType2Flag(tp byte, signed bool) (flag byte) {
 	}
 	return
 }
+
+func (decoder *ChunkDecoder) DecodeColToChunk(colIdx int, col *ColInfo, colData []byte, chk *chunk.Chunk) error {
+	switch col.Ft.GetType() {
+	case mysql.TypeLonglong, mysql.TypeLong, mysql.TypeInt24, mysql.TypeShort, mysql.TypeTiny:
+		if mysql.HasUnsignedFlag(col.Ft.GetFlag()) {
+			chk.AppendUint64(colIdx, decodeUint(colData))
+		} else {
+			chk.AppendInt64(colIdx, decodeInt(colData))
+		}
+	case mysql.TypeYear:
+		chk.AppendInt64(colIdx, decodeInt(colData))
+	case mysql.TypeFloat:
+		_, fVal, err := codec.DecodeFloat(colData)
+		if err != nil {
+			return err
+		}
+		chk.AppendFloat32(colIdx, float32(fVal))
+	case mysql.TypeDouble:
+		_, fVal, err := codec.DecodeFloat(colData)
+		if err != nil {
+			return err
+		}
+		chk.AppendFloat64(colIdx, fVal)
+	case mysql.TypeVarString, mysql.TypeVarchar, mysql.TypeString,
+		mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:
+		chk.AppendBytes(colIdx, colData)
+	case mysql.TypeNewDecimal:
+		_, dec, _, frac, err := codec.DecodeDecimal(colData)
+		if err != nil {
+			return err
+		}
+		if col.Ft.GetDecimal() != types.UnspecifiedLength && frac > col.Ft.GetDecimal() {
+			to := new(types.MyDecimal)
+			err := dec.Round(to, col.Ft.GetDecimal(), types.ModeHalfUp)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			dec = to
+		}
+		chk.AppendMyDecimal(colIdx, dec)
+	case mysql.TypeDate, mysql.TypeDatetime, mysql.TypeTimestamp:
+		var t types.Time
+		t.SetType(col.Ft.GetType())
+		t.SetFsp(col.Ft.GetDecimal())
+		err := t.FromPackedUint(decodeUint(colData))
+		if err != nil {
+			return err
+		}
+		if col.Ft.GetType() == mysql.TypeTimestamp && decoder.loc != nil && !t.IsZero() {
+			err = t.ConvertTimeZone(time.UTC, decoder.loc)
+			if err != nil {
+				return err
+			}
+		}
+		chk.AppendTime(colIdx, t)
+	case mysql.TypeDuration:
+		var dur types.Duration
+		dur.Duration = time.Duration(decodeInt(colData))
+		dur.Fsp = col.Ft.GetDecimal()
+		chk.AppendDuration(colIdx, dur)
+	case mysql.TypeEnum:
+		// ignore error deliberately, to read empty enum value.
+		enum, err := types.ParseEnumValue(col.Ft.GetElems(), decodeUint(colData))
+		if err != nil {
+			enum = types.Enum{}
+		}
+		chk.AppendEnum(colIdx, enum)
+	case mysql.TypeSet:
+		set, err := types.ParseSetValue(col.Ft.GetElems(), decodeUint(colData))
+		if err != nil {
+			return err
+		}
+		chk.AppendSet(colIdx, set)
+	case mysql.TypeBit:
+		byteSize := (col.Ft.GetFlen() + 7) >> 3
+		chk.AppendBytes(colIdx, types.NewBinaryLiteralFromUint(decodeUint(colData), byteSize))
+	case mysql.TypeJSON:
+		var j types.BinaryJSON
+		j.TypeCode = colData[0]
+		j.Value = colData[1:]
+		chk.AppendJSON(colIdx, j)
+	default:
+		return errors.Errorf("unknown type %d", col.Ft.GetType())
+	}
+	return nil
+}
+
+// DecodeToChunk decodes a row to chunk. for hbase use
+func (decoder *ChunkDecoder) DecodeToChunk2(rowData map[int64][]byte, handle kv.Handle, chk *chunk.Chunk) error {
+	// err := decoder.fromBytes(rowData)
+	// if err != nil {
+	// 	return err
+	// }
+
+	for colIdx := range decoder.columns {
+		col := &decoder.columns[colIdx]
+		// fill the virtual column value after row calculation
+		if col.VirtualGenCol {
+			chk.AppendNull(colIdx)
+			continue
+		}
+
+		/*_, isNil, notFound := decoder.row.findColID(col.ID)
+		if !notFound && !isNil {
+			// colData := decoder.getData(idx)
+			colData := rowData[col.ID]
+			err := decoder.decodeColToChunk(colIdx, col, colData, chk)
+			if err != nil {
+				return err
+			}
+			continue
+		}*/
+		colData, ok := rowData[col.ID]
+		notFound := !ok
+		// TODO: judge if is not nil
+		isNil := false
+		fmt.Println("Hbase data convert colIdx=", colIdx, " col.ID:", col.ID, ",notFound:", notFound, ",isNil:",
+			isNil, ",byte len=", len(colData), "col.Ft.type=", col.Ft.GetType())
+		err := decoder.decodeColToChunk2(colIdx, col, colData, chk)
+		if err != nil {
+			fmt.Println("col2chunk failed !,err=", err)
+			return err
+		}
+		// Only try to decode handle when there is no corresponding column in the value.
+		// This is because the information in handle may be incomplete in some cases.
+		// For example, prefixed clustered index like 'primary key(col1(1))' only store the leftmost 1 char in the handle.
+		/*if decoder.tryAppendHandleColumn(colIdx, col, handle, chk) {
+			continue
+		}
+
+		if isNil {
+			chk.AppendNull(colIdx)
+			continue
+		}
+
+		if decoder.defDatum == nil {
+			chk.AppendNull(colIdx)
+			continue
+		}
+
+		err = decoder.defDatum(colIdx, chk)
+		if err != nil {
+			return err
+		}*/
+	}
+	return nil
+}
+
+func (decoder *ChunkDecoder) decodeColToChunk2(colIdx int, col *ColInfo, colData []byte, chk *chunk.Chunk) error {
+	switch col.Ft.GetType() {
+	case mysql.TypeLonglong, mysql.TypeLong, mysql.TypeInt24, mysql.TypeShort, mysql.TypeTiny:
+		if mysql.HasUnsignedFlag(col.Ft.GetFlag()) {
+			chk.AppendUint64(colIdx, decodeUint(colData))
+		} else {
+			chk.AppendInt64(colIdx, decodeInt(colData))
+		}
+	case mysql.TypeYear:
+		chk.AppendInt64(colIdx, decodeInt(colData))
+	case mysql.TypeFloat:
+		_, fVal, err := codec.DecodeFloat(colData)
+		if err != nil {
+			return err
+		}
+		chk.AppendFloat32(colIdx, float32(fVal))
+	case mysql.TypeDouble:
+		_, fVal, err := codec.DecodeFloat(colData)
+		if err != nil {
+			return err
+		}
+		chk.AppendFloat64(colIdx, fVal)
+	case mysql.TypeVarString, mysql.TypeVarchar, mysql.TypeString,
+		mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:
+		chk.AppendBytes(colIdx, colData)
+	case mysql.TypeNewDecimal:
+		_, dec, _, frac, err := codec.DecodeDecimal(colData)
+		if err != nil {
+			return err
+		}
+		if col.Ft.GetDecimal() != types.UnspecifiedLength && frac > col.Ft.GetDecimal() {
+			to := new(types.MyDecimal)
+			err := dec.Round(to, col.Ft.GetDecimal(), types.ModeHalfUp)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			dec = to
+		}
+		chk.AppendMyDecimal(colIdx, dec)
+	case mysql.TypeDate, mysql.TypeDatetime, mysql.TypeTimestamp:
+		var t types.Time
+		t.SetType(col.Ft.GetType())
+		t.SetFsp(col.Ft.GetDecimal())
+		err := t.FromPackedUint(decodeUint(colData))
+		if err != nil {
+			return err
+		}
+		if col.Ft.GetType() == mysql.TypeTimestamp && decoder.loc != nil && !t.IsZero() {
+			err = t.ConvertTimeZone(time.UTC, decoder.loc)
+			if err != nil {
+				return err
+			}
+		}
+		chk.AppendTime(colIdx, t)
+	case mysql.TypeDuration:
+		var dur types.Duration
+		dur.Duration = time.Duration(decodeInt(colData))
+		dur.Fsp = col.Ft.GetDecimal()
+		chk.AppendDuration(colIdx, dur)
+	case mysql.TypeEnum:
+		// ignore error deliberately, to read empty enum value.
+		enum, err := types.ParseEnumValue(col.Ft.GetElems(), decodeUint(colData))
+		if err != nil {
+			enum = types.Enum{}
+		}
+		chk.AppendEnum(colIdx, enum)
+	case mysql.TypeSet:
+		set, err := types.ParseSetValue(col.Ft.GetElems(), decodeUint(colData))
+		if err != nil {
+			return err
+		}
+		chk.AppendSet(colIdx, set)
+	case mysql.TypeBit:
+		byteSize := (col.Ft.GetFlen() + 7) >> 3
+		chk.AppendBytes(colIdx, types.NewBinaryLiteralFromUint(decodeUint(colData), byteSize))
+	case mysql.TypeJSON:
+		var j types.BinaryJSON
+		j.TypeCode = colData[0]
+		j.Value = colData[1:]
+		chk.AppendJSON(colIdx, j)
+	default:
+		return errors.Errorf("unknown type %d", col.Ft.GetType())
+	}
+	return nil
+}

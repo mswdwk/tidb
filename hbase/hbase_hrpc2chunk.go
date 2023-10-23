@@ -3,11 +3,12 @@ package hbase
 import (
 	"fmt"
 
+	"errors"
+
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/sessionctx"
-	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/tsuna/gohbase/hrpc"
@@ -42,14 +43,42 @@ func Cell2Map(h *hrpc.Result) map[string][]byte {
 }
 
 // reference: func DecodeRowValToChunk(sctx sessionctx.Context, schema *expression.Schema, tblInfo *model.TableInfo,handle kv.Handle, rowVal []byte, chk *chunk.Chunk, rd *rowcodec.ChunkDecoder)
-
+//  			DecodeToChunk
+// 				decodeColToChunk
 // TODO:  Hbase multi version for one row/column
 // HrpcResult2Chunk decodes *hrpc.Result value into chunk checking row format used.
 
 func HrpcResult2Chunk(sctx sessionctx.Context, schema *expression.Schema, tblInfo *model.TableInfo,
-	handle kv.Handle, val *hrpc.Result, chk *chunk.Chunk, rd *rowcodec.ChunkDecoder) error {
+	handle kv.Handle, val *hrpc.Result, chk *chunk.Chunk, decoder *rowcodec.ChunkDecoder) error {
 	hrMap := Cell2Map(val)
-	// decoder := codec.NewDecoder(chk, sctx.GetSessionVars().Location())
+	if nil == hrMap {
+		return errors.New("hrpc result is nil")
+	}
+
+	// err := decoder.fromBytes(rowData)
+	// if err != nil {
+	// 	return err
+	// }
+	// var decoder rowcodec.ChunkDecoder = *rd //codec.NewDecoder(chk, sctx.GetSessionVars().Location())
+	kvmap := make(map[int64][]byte, 16)
+	for _, col := range schema.Columns { //decoder.columns {
+		// colData := hrMap[col.OrigName]
+		kvmap[col.ID] = hrMap[col.OrigName]
+		fmt.Println("col.OrigName=", col.OrigName, "col.ID=", col.ID, "col.UniqueID=", col.UniqueID)
+	}
+
+	// TODO check colData is not nil
+	// err := decoder.DecodeColToChunk(col.Index, col, colData, chk)
+	err := decoder.DecodeToChunk2(kvmap, handle, chk)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/*{
+	decoder := codec.NewDecoder(chk, sctx.GetSessionVars().Location())
 	for i, col := range schema.Columns {
 		// fill the virtual column value after row calculation
 		if col.VirtualExpr != nil {
@@ -58,12 +87,16 @@ func HrpcResult2Chunk(sctx sessionctx.Context, schema *expression.Schema, tblInf
 		}
 		// find value by column name from hrMap then set to chk
 		// TODO:
-		var d types.Datum
-		//convert value to datum accordding to column type
-		d.SetBytes(hrMap[col.OrigName])
-		chk.AppendDatum(i, &d)
-		// rd.DecodeToChunk(hrMap[col.OrigName], handle, chk)
 
+		// convert value to datum accordding to column type
+		// var d types.Datum
+		// d.SetBytes(hrMap[col.OrigName])
+		// chk.AppendDatum(i, &d)
+
+		// rd.DecodeToChunk(hrMap[col.OrigName], handle, chk)
+		colData := hrMap[col.OrigName]
+		colIdx := col.Index
+		err := decoder.decodeColToChunk(colIdx, col, colData, chk)
 	}
 	return nil
-}
+}*/

@@ -394,11 +394,11 @@ func hbase2chunk(e *PointGetExecutor, val *hrpc.Result, req *chunk.Chunk) error 
 	if err != nil {
 		return err
 	}
-	err = table.FillVirtualColumnValue(e.virtualColumnRetFieldTypes, e.virtualColumnIndex,
+	/*err = table.FillVirtualColumnValue(e.virtualColumnRetFieldTypes, e.virtualColumnIndex,
 		e.schema.Columns, e.columns, e.ctx, req)
 	if err != nil {
 		return err
-	}
+	}*/
 	return nil
 }
 

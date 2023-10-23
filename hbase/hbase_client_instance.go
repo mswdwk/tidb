@@ -36,7 +36,7 @@ func GetHbaseAdminClient() gohbase.AdminClient {
 }
 
 func InitHbaseClient(path string) error {
-	fmt.Printf("hbasedirver open path=%s, time %s\n", path, time.Now())
+	fmt.Printf("hbasedirver init path=%s, time %s\n", path, time.Now())
 	G_HbaseClient = gohbase.NewClient(path)
 	G_HbaseAdminClient = gohbase.NewAdminClient(path)
 	v := map[string]map[string][]byte{

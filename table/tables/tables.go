@@ -830,6 +830,11 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 		zap.Stringer("key", key))
 	sc, rd := sessVars.StmtCtx, &sessVars.RowEncoder
 	writeBufs.RowValBuf, err = tablecodec.EncodeRow(sc, row, colIDs, writeBufs.RowValBuf, writeBufs.AddRowValues, rd)
+	// encode value in fieldsValue
+	/*for k, v := range fieldsValue {
+		rd.EncodeValueDatum(sc, r, row[0])
+	}*/
+
 	if err != nil {
 		return nil, err
 	}
