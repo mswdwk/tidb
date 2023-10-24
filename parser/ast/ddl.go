@@ -2211,6 +2211,11 @@ const (
 	TableOptionTTL
 	TableOptionTTLEnable
 	TableOptionTTLJobInterval
+	// for multi data source usage
+	TableOptionDataSourceType
+	TableOptionTableMapping
+	// for multi data source usage
+
 	TableOptionPlacementPolicy = TableOptionType(PlacementOptionPolicy)
 	TableOptionStatsBuckets    = TableOptionType(StatsOptionBuckets)
 	TableOptionStatsTopN       = TableOptionType(StatsOptionTopN)
@@ -2576,6 +2581,16 @@ func (n *TableOption) Restore(ctx *format.RestoreCtx) error {
 			ctx.WriteString(n.StrValue)
 			return nil
 		})
+	case TableOptionDataSourceType:
+		ctx.WriteKeyWord("DATA_SOURCE_TYPE ")
+		ctx.WriteString(n.StrValue)
+	case TableOptionTableMapping:
+		ctx.WriteKeyWord("TABLE_MAPPING ")
+		if n.BoolValue {
+			ctx.WriteString("ON")
+		} else {
+			ctx.WriteString("OFF")
+		}
 	default:
 		return errors.Errorf("invalid TableOption: %d", n.Tp)
 	}

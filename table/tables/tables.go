@@ -29,6 +29,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
+	"github.com/pingcap/tidb/datasource"
 	"github.com/pingcap/tidb/hbase"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
@@ -879,12 +880,20 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 		return nil, err
 	}
 
-	fmt.Println("prepare insert into table ", t.Meta().Name, ", key ", string(key), ",value ", string(value))
-
-	for i, oneRow := range row {
+	/*for i, oneRow := range row {
 		fmt.Println("add record: row id ", i, ",value ", oneRow.GetValue())
+	}*/
+	// IF DATA DST IS HBASE THEN insert into it
+
+	tbName := t.Meta().Name.String()
+	if t.Meta().DataSourceType == datasource.TypeHbase {
+		fmt.Println("add record in hbase table ", tbName)
+		logutil.Logger(ctx).Info("prepare to set rowkey to hbase table " + tbName + ", key=" + key.String() +
+			",tikv val=" + string(value))
+		hbase.PutOneRowOneCf(tbName, key.String(), "cf", fieldsValue)
+	} else {
+		fmt.Println("insert into tikv table ", tbName, ", key ", string(key), ",len(value) ", len(value))
 	}
-	hbase.PutOneRowOneCf(t.Meta().Name.String(), key.String(), "cf", fieldsValue)
 
 	failpoint.Inject("addRecordForceAssertExist", func() {
 		// Assert the key exists while it actually doesn't. This is helpful to test if assertion takes effect.
@@ -1157,8 +1166,11 @@ func (t *TableCommon) RemoveRecord(ctx sessionctx.Context, h kv.Handle, r []type
 		return err
 	}
 	// hbase delete one key
-	rowkey := t.RecordKey(h)
-	hbase.DeleteOneRow(t.Meta().Name.String(), rowkey.String())
+	if t.Meta().DataSourceType == datasource.TypeHbase {
+		rowkey := t.RecordKey(h)
+		hbase.DeleteOneRow(t.Meta().Name.String(), rowkey.String())
+		// TODO :  RETURN AFFECTED ROWS
+	}
 
 	if m := t.Meta(); m.TempTableType != model.TempTableNone {
 		if tmpTable := addTemporaryTable(ctx, m); tmpTable != nil {

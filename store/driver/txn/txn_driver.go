@@ -61,7 +61,7 @@ func NewTiKVTxn(txn *tikv.KVTxn) kv.Transaction {
 }
 
 func (txn *tikvTxn) GetTableInfo(id int64) *model.TableInfo {
-	fmt.Println("XXXDEBUG_GETTABLEINFO")
+	fmt.Println("DEBUG_GETTABLEINFO")
 	return txn.idxNameCache[id]
 }
 
@@ -94,7 +94,7 @@ func (txn *tikvTxn) LockKeysFunc(ctx context.Context, lockCtx *kv.LockCtx, fn fu
 }
 
 func (txn *tikvTxn) Commit(ctx context.Context) error {
-	fmt.Println("XXXDEBUG_COMMIT")
+	fmt.Println("DEBUG_COMMIT")
 	err := txn.KVTxn.Commit(ctx)
 	return txn.extractKeyErr(err)
 }

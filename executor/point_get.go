@@ -357,7 +357,7 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 		rqs, ok := cv.(util.RequestSource)
 		if ok && rqs.RequestSourceInternal {
 			fmt.Println("got rowkey from tikv table ", e.tblInfo.Name.String(), ", key=", key.String(),
-				"tikv val=", string(val))
+				"tikv len(val)=", len(val))
 		} else if ok {
 
 		} else {
@@ -366,7 +366,7 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 	} else {
 		fmt.Println("ctx is NIL: maybe hbase table " + e.tblInfo.Name.String())
 		logutil.Logger(ctx).Info("prepare to get rowkey from hbase table " + e.tblInfo.Name.String() + ", key=" + key.String() +
-			",tikv val=" + string(val))
+			",tikv len(val)=" + string(len(val)))
 		// TODO: Get dbname/schema as namespace
 		// convert hrpcVal to tikv value []byte
 		if val, _ := hbase.GetOneRowkey(e.tblInfo.Name.String(), key.String()); nil != val {

@@ -370,6 +370,7 @@ import (
 	clustered             "CLUSTERED"
 	cycle                 "CYCLE"
 	data                  "DATA"
+	dataSourceType        "DATA_SOURCE_TYPE"
 	datetimeType          "DATETIME"
 	dateType              "DATE"
 	day                   "DAY"
@@ -604,6 +605,7 @@ import (
 	system                "SYSTEM"
 	systemTime            "SYSTEM_TIME"
 	tableChecksum         "TABLE_CHECKSUM"
+	tableMapping          "TABLE_MAPPING"
 	tables                "TABLES"
 	tablespace            "TABLESPACE"
 	temporary             "TEMPORARY"
@@ -1600,19 +1602,19 @@ ResourceGroupOptionList:
 |	ResourceGroupOptionList DirectResourceGroupOption
 	{
 		if $1.([]*ast.ResourceGroupOption)[0].Tp == $2.(*ast.ResourceGroupOption).Tp ||
-		   (len($1.([]*ast.ResourceGroupOption)) > 1 && $1.([]*ast.ResourceGroupOption)[1].Tp == $2.(*ast.ResourceGroupOption).Tp) {
+			(len($1.([]*ast.ResourceGroupOption)) > 1 && $1.([]*ast.ResourceGroupOption)[1].Tp == $2.(*ast.ResourceGroupOption).Tp) {
 			yylex.AppendError(yylex.Errorf("Dupliated options specified"))
-            return 1
+			return 1
 		}
 		$$ = append($1.([]*ast.ResourceGroupOption), $2.(*ast.ResourceGroupOption))
 	}
 |	ResourceGroupOptionList ',' DirectResourceGroupOption
 	{
 		if $1.([]*ast.ResourceGroupOption)[0].Tp == $3.(*ast.ResourceGroupOption).Tp ||
-    	   (len($1.([]*ast.ResourceGroupOption)) > 1 && $1.([]*ast.ResourceGroupOption)[1].Tp == $3.(*ast.ResourceGroupOption).Tp) {
-    		 yylex.AppendError(yylex.Errorf("Dupliated options specified"))
-             return 1
-    	}
+			(len($1.([]*ast.ResourceGroupOption)) > 1 && $1.([]*ast.ResourceGroupOption)[1].Tp == $3.(*ast.ResourceGroupOption).Tp) {
+			yylex.AppendError(yylex.Errorf("Dupliated options specified"))
+			return 1
+		}
 		$$ = append($1.([]*ast.ResourceGroupOption), $3.(*ast.ResourceGroupOption))
 	}
 
@@ -1622,9 +1624,9 @@ DirectResourceGroupOption:
 		$$ = &ast.ResourceGroupOption{Tp: ast.ResourceRURate, UintValue: $3.(uint64)}
 	}
 |	"BURSTABLE"
-    {
-    	$$ = &ast.ResourceGroupOption{Tp: ast.ResourceBurstableOpiton, BoolValue: true}
-    }
+	{
+		$$ = &ast.ResourceGroupOption{Tp: ast.ResourceBurstableOpiton, BoolValue: true}
+	}
 
 PlacementOptionList:
 	DirectPlacementOption
@@ -6494,6 +6496,8 @@ UnReservedKeyword:
 |	"PASSWORD_LOCK_TIME"
 |	"DIGEST"
 |	"REUSE" %prec lowerThanEq
+|	"DATA_SOURCE_TYPE"
+|	"TABLE_MAPPING"
 
 TiDBKeyword:
 	"ADMIN"
@@ -11901,6 +11905,21 @@ TableOption:
 			return 1
 		}
 		$$ = &ast.TableOption{Tp: ast.TableOptionTTLJobInterval, StrValue: $3}
+	}
+|	"DATA_SOURCE_TYPE" EqOpt StringName
+	{
+		$$ = &ast.TableOption{Tp: ast.TableOptionDataSourceType, StrValue: $3}
+	}
+|	"TABLE_MAPPING" EqOpt Boolean
+	{
+		value := false
+		if $3.(bool) {
+			value = true
+		}
+		$$ = &ast.TableOption{
+			Tp:        ast.TableOptionTableMapping,
+			BoolValue: value,
+		}
 	}
 
 ForceOpt:

@@ -351,7 +351,7 @@ func onDropTableOrView(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ er
 	if nil != hbaseAdminClient {
 		err = hbase.DeleteTable(hbaseAdminClient, job.TableName)
 		if nil != err {
-			fmt.Println("hbase delete table failed, tableName ", job.TableName)
+			fmt.Println("hbase drop table failed, tableName ", job.TableName)
 		}
 	} else {
 		fmt.Println("hbaseAdminClient is nil !")

@@ -32,6 +32,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/datasource"
 	"github.com/pingcap/tidb/ddl/label"
 	"github.com/pingcap/tidb/ddl/resourcegroup"
 	ddlutil "github.com/pingcap/tidb/ddl/util"
@@ -3129,6 +3130,12 @@ func handleTableOptions(options []*ast.TableOption, tbInfo *model.TableInfo) err
 
 			tbInfo.TTLInfo = ttlInfo
 			ttlOptionsHandled = true
+
+		case ast.TableOptionDataSourceType:
+			tbInfo.DataSourceType = datasource.GetDataSourceType(op.StrValue)
+
+		case ast.TableOptionTableMapping:
+			tbInfo.TableMapping = op.BoolValue
 		}
 	}
 	shardingBits := shardingBits(tbInfo)
