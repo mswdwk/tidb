@@ -328,15 +328,16 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 
 	if e.tblInfo.DataSourceType == datasource.TypeHbase {
 		hbaseRowkey := hex.EncodeToString(e.handle.Encoded())
-		info_msg := fmt.Sprintln("prepare to get rowkey from hbase table " + e.tblInfo.Name.String() + ", key=" + key.String() +
-			",hbaseRowkey=" + hbaseRowkey)
+		info_msg := fmt.Sprintf("prepare to get rowkey from hbase table %s, key=%s, hbaseRowkey %s", e.tblInfo.Name.String(), key.String(), hbaseRowkey)
 		fmt.Println(info_msg)
 		logutil.Logger(ctx).Info(info_msg)
 		// TODO: Get dbname/schema as namespace
 		// convert hrpcVal to tikv value []byte
-
 		if val, _ := hbase.GetOneRowkey(e.tblInfo.Name.String(), hbaseRowkey); nil != val {
-			// need to known how to encode to tikv result
+			if len(val.Cells) == 0 {
+				fmt.Printf("no data found from hbase with rowkey %s ,chunk row len %d\n", hbaseRowkey, req.NumRows())
+				return nil
+			}
 			return hbase2chunk(e, val, req)
 		}
 	}

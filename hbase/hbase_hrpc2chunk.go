@@ -55,15 +55,23 @@ func HrpcResult2Chunk(sctx sessionctx.Context, schema *expression.Schema, tblInf
 		return errors.New("hrpc result is nil")
 	}
 
+	if len(hrMap) == 0 {
+		fmt.Println("hbase get 0 result")
+		return nil
+	}
 	// err := decoder.fromBytes(rowData)
 	// if err != nil {
 	// 	return err
 	// }
 	// var decoder rowcodec.ChunkDecoder = *rd //codec.NewDecoder(chk, sctx.GetSessionVars().Location())
 	kvmap := make(map[int64][]byte, 16)
-	for _, col := range schema.Columns { //decoder.columns {
+	for _, col := range schema.Columns {
 		// colData := hrMap[col.OrigName]
-		kvmap[col.ID] = hrMap[col.OrigName]
+		if val, ok := hrMap[col.OrigName]; ok {
+			kvmap[col.ID] = val
+		} else {
+			fmt.Println("Error: can not get column " + col.OrigName)
+		}
 		fmt.Println("col.OrigName=", col.OrigName, "col.ID=", col.ID, "col.UniqueID=", col.UniqueID)
 	}
 
