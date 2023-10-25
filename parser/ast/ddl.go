@@ -2582,14 +2582,16 @@ func (n *TableOption) Restore(ctx *format.RestoreCtx) error {
 			return nil
 		})
 	case TableOptionDataSourceType:
-		ctx.WriteKeyWord("DATA_SOURCE_TYPE ")
+		ctx.WriteKeyWord("DATA_SOURCE ")
+		ctx.WritePlain("= ")
 		ctx.WriteString(n.StrValue)
 	case TableOptionTableMapping:
 		ctx.WriteKeyWord("TABLE_MAPPING ")
+		ctx.WritePlain("= ")
 		if n.BoolValue {
-			ctx.WriteString("true")
+			ctx.WritePlain("true")
 		} else {
-			ctx.WriteString("false")
+			ctx.WritePlain("false")
 		}
 	default:
 		return errors.Errorf("invalid TableOption: %d", n.Tp)
