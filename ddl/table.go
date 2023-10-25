@@ -23,6 +23,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
+	"github.com/pingcap/tidb/datasource"
 	"github.com/pingcap/tidb/ddl/label"
 	"github.com/pingcap/tidb/ddl/placement"
 	"github.com/pingcap/tidb/ddl/util"
@@ -44,7 +45,6 @@ import (
 	"github.com/pingcap/tidb/util/dbterror"
 	"github.com/pingcap/tidb/util/gcutil"
 	"github.com/pingcap/tidb/util/logutil"
-	"github.com/tsuna/gohbase"
 	"go.uber.org/zap"
 )
 
@@ -94,14 +94,11 @@ func createTable(d *ddlCtx, t *meta.Meta, job *model.Job, fkCheck bool) (*model.
 		// retrive array tbInfo.Columns
 		for i, col := range tbInfo.Columns {
 			// col = tbInfo.Columns[i]
-			fmt.Println("table column id ", i, ", name ", col.Name)
+			fmt.Println("table column id ", i, ", name ", col.Name, ",field type ", col.FieldType.GetType())
 		}
 
-		var hbaseAdminClient gohbase.AdminClient = hbase.GetHbaseAdminClient()
-		if nil != hbaseAdminClient {
-			hbase.HbaseCreateTable(hbaseAdminClient, job.TableName, []string{"cf"}, 1)
-		} else {
-			fmt.Println("hbaseAdminClient is nil !")
+		if tbInfo.DataSourceType == datasource.TypeHbase {
+			hbase.HbaseCreateTable(hbase.GetHbaseAdminClient(), job.TableName, []string{"cf"}, 1)
 		}
 
 		failpoint.Inject("checkOwnerCheckAllVersionsWaitTime", func(val failpoint.Value) {
@@ -347,15 +344,13 @@ func onDropTableOrView(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ er
 		return ver, errors.Trace(err)
 	}
 
-	var hbaseAdminClient gohbase.AdminClient = hbase.GetHbaseAdminClient()
-	if nil != hbaseAdminClient {
-		err = hbase.DeleteTable(hbaseAdminClient, job.TableName)
+	if tblInfo.DataSourceType == datasource.TypeHbase {
+		err = hbase.DeleteTable(hbase.GetHbaseAdminClient(), job.TableName)
 		if nil != err {
 			fmt.Println("hbase drop table failed, tableName ", job.TableName)
 		}
-	} else {
-		fmt.Println("hbaseAdminClient is nil !")
 	}
+
 	originalState := job.SchemaState
 	switch tblInfo.State {
 	case model.StatePublic:

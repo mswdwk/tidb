@@ -16,10 +16,12 @@ package executor
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
+	"github.com/pingcap/tidb/datasource"
 	"github.com/pingcap/tidb/distsql"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/hbase"
@@ -41,7 +43,6 @@ import (
 	"github.com/pingcap/tidb/util/logutil/consistency"
 	"github.com/pingcap/tidb/util/rowcodec"
 	"github.com/tikv/client-go/v2/txnkv/txnsnapshot"
-	"github.com/tikv/client-go/v2/util"
 	"github.com/tsuna/gohbase/hrpc"
 )
 
@@ -323,9 +324,27 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 	}
 
 	key := tablecodec.EncodeRowKeyWithHandle(tblID, e.handle)
-	val, err := e.getAndLock(ctx, key)
+	// judge data source , if it is not for tidb internal,then try get data from hbase
 
+	if e.tblInfo.DataSourceType == datasource.TypeHbase {
+		hbaseRowkey := hex.EncodeToString(e.handle.Encoded())
+		info_msg := fmt.Sprintln("prepare to get rowkey from hbase table " + e.tblInfo.Name.String() + ", key=" + key.String() +
+			",hbaseRowkey=" + hbaseRowkey)
+		fmt.Println(info_msg)
+		logutil.Logger(ctx).Info(info_msg)
+		// TODO: Get dbname/schema as namespace
+		// convert hrpcVal to tikv value []byte
+
+		if val, _ := hbase.GetOneRowkey(e.tblInfo.Name.String(), hbaseRowkey); nil != val {
+			// need to known how to encode to tikv result
+			return hbase2chunk(e, val, req)
+		}
+	}
+
+	val, err := e.getAndLock(ctx, key)
+	fmt.Println("got rowkey from tikv table ", e.tblInfo.Name.String(), ", key=", key.String())
 	if err != nil {
+		fmt.Println("tidb can not get key " + string(key))
 		return err
 	}
 	if len(val) == 0 {
@@ -349,30 +368,6 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 			)
 		}
 		return nil
-	}
-
-	// judge data source , if it is not for tidb internal,then try get data from hbase
-	cv := ctx.Value(util.RequestSourceKey)
-	if nil != cv {
-		rqs, ok := cv.(util.RequestSource)
-		if ok && rqs.RequestSourceInternal {
-			fmt.Println("got rowkey from tikv table ", e.tblInfo.Name.String(), ", key=", key.String(),
-				"tikv len(val)=", len(val))
-		} else if ok {
-
-		} else {
-			fmt.Println("ctx is unknown")
-		}
-	} else {
-		fmt.Println("ctx is NIL: maybe hbase table " + e.tblInfo.Name.String())
-		logutil.Logger(ctx).Info("prepare to get rowkey from hbase table " + e.tblInfo.Name.String() + ", key=" + key.String() +
-			",tikv len(val)=" + string(len(val)))
-		// TODO: Get dbname/schema as namespace
-		// convert hrpcVal to tikv value []byte
-		if val, _ := hbase.GetOneRowkey(e.tblInfo.Name.String(), key.String()); nil != val {
-			// need to known how to encode to tikv result
-			return hbase2chunk(e, val, req)
-		}
 	}
 
 	err = DecodeRowValToChunk(e.base().ctx, e.schema, e.tblInfo, e.handle, val, req, e.rowDecoder)

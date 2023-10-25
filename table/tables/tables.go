@@ -334,6 +334,13 @@ func (t *TableCommon) RecordKey(h kv.Handle) kv.Key {
 	return tablecodec.EncodeRecordKey(t.recordPrefix, h)
 }
 
+// RecordKey implements table.Table interface.
+func (t *TableCommon) RecordHbaseRowKey(h kv.Handle) kv.Key {
+	buf := make([]byte, 0, h.Len())
+	buf = append(buf, h.Encoded()...)
+	return buf
+}
+
 // UpdateRecord implements table.Table UpdateRecord interface.
 // `touched` means which columns are really modified, used for secondary indices.
 // Length of `oldData` and `newData` equals to length of `t.WritableCols()`.
@@ -888,9 +895,10 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 	tbName := t.Meta().Name.String()
 	if t.Meta().DataSourceType == datasource.TypeHbase {
 		fmt.Println("add record in hbase table ", tbName)
-		logutil.Logger(ctx).Info("prepare to set rowkey to hbase table " + tbName + ", key=" + key.String() +
+		hbaseRowkey := t.RecordHbaseRowKey(recordID)
+		logutil.Logger(ctx).Info("prepare to set rowkey to hbase table " + tbName + ", key=" + hbaseRowkey.String() +
 			",tikv val=" + string(value))
-		hbase.PutOneRowOneCf(tbName, key.String(), "cf", fieldsValue)
+		hbase.PutOneRowOneCf(tbName, hbaseRowkey.String(), "cf", fieldsValue)
 	} else {
 		fmt.Println("insert into tikv table ", tbName, ", key ", string(key), ",len(value) ", len(value))
 	}
@@ -1167,7 +1175,7 @@ func (t *TableCommon) RemoveRecord(ctx sessionctx.Context, h kv.Handle, r []type
 	}
 	// hbase delete one key
 	if t.Meta().DataSourceType == datasource.TypeHbase {
-		rowkey := t.RecordKey(h)
+		rowkey := t.RecordHbaseRowKey(h)
 		hbase.DeleteOneRow(t.Meta().Name.String(), rowkey.String())
 		// TODO :  RETURN AFFECTED ROWS
 	}

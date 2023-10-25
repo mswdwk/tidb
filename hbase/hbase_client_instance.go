@@ -16,6 +16,7 @@ package hbase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -62,12 +63,16 @@ func HbaseCreateTable(client gohbase.AdminClient, table string, cFamilies []stri
 	// DeleteTable(client, table)
 	// Don't check the error, since one will be returned if the table doesn't
 	// exist
+	if nil == client {
+		fmt.Println("hbaseAdminClient is nil !")
+		return errors.New("hbaseAdminClient is nil !")
+	}
 
 	cf := make(map[string]map[string]string, len(cFamilies))
 	for _, f := range cFamilies {
 		cf[f] = nil
 	}
-
+	// TODO: optimize
 	// pre-split table for reverse scan test of region changes
 	keySplits := [][]byte{[]byte("REVTEST-100"), []byte("REVTEST-200"), []byte("REVTEST-300")}
 	hrpc.MaxVersions(maxVersion)
@@ -82,6 +87,11 @@ func HbaseCreateTable(client gohbase.AdminClient, table string, cFamilies []stri
 // DeleteTable finds the HBase shell via the HBASE_HOME environment variable,
 // and disables and drops the given table
 func DeleteTable(client gohbase.AdminClient, table string) error {
+	if nil == client {
+		fmt.Println("hbaseAdminClient is nil !")
+		return errors.New("hbaseAdminClient is nil !")
+	}
+
 	dit := hrpc.NewDisableTable(context.Background(), []byte(table))
 	err := client.DisableTable(dit)
 	if err != nil {
