@@ -370,7 +370,6 @@ import (
 	clustered             "CLUSTERED"
 	cycle                 "CYCLE"
 	data                  "DATA"
-	dataSourceType        "DATA_SOURCE_TYPE"
 	datetimeType          "DATETIME"
 	dateType              "DATE"
 	day                   "DAY"
@@ -605,7 +604,6 @@ import (
 	system                "SYSTEM"
 	systemTime            "SYSTEM_TIME"
 	tableChecksum         "TABLE_CHECKSUM"
-	tableMapping          "TABLE_MAPPING"
 	tables                "TABLES"
 	tablespace            "TABLESPACE"
 	temporary             "TEMPORARY"
@@ -739,6 +737,8 @@ import (
 	ruRate                "RU_PER_SEC"
 	ioReadBandwidth       "IO_READ_BANDWIDTH"
 	ioWriteBandwidth      "IO_WRITE_BANDWIDTH"
+	dataSource            "DATA_SOURCE"
+	tableMapping          "TABLE_MAPPING"
 
 	/* The following tokens belong to TiDBKeyword. Notice: make sure these tokens are contained in TiDBKeyword. */
 	admin                      "ADMIN"
@@ -6496,8 +6496,6 @@ UnReservedKeyword:
 |	"PASSWORD_LOCK_TIME"
 |	"DIGEST"
 |	"REUSE" %prec lowerThanEq
-|	"DATA_SOURCE_TYPE"
-|	"TABLE_MAPPING"
 
 TiDBKeyword:
 	"ADMIN"
@@ -6638,6 +6636,8 @@ NotKeywordToken:
 |	"IO_WRITE_BANDWIDTH"
 |	"RU_PER_SEC"
 |	"BURSTABLE"
+|	"DATA_SOURCE"
+|	"TABLE_MAPPING"
 
 /************************************************************************************
  *
@@ -11906,7 +11906,7 @@ TableOption:
 		}
 		$$ = &ast.TableOption{Tp: ast.TableOptionTTLJobInterval, StrValue: $3}
 	}
-|	"DATA_SOURCE_TYPE" EqOpt StringName
+|	"DATA_SOURCE" EqOpt StringName
 	{
 		$$ = &ast.TableOption{Tp: ast.TableOptionDataSourceType, StrValue: $3}
 	}

@@ -268,6 +268,7 @@ var tokenMap = map[string]int{
 	"CURTIME":                  curTime,
 	"CYCLE":                    cycle,
 	"DATA":                     data,
+	"DATA_SOURCE":              dataSource,
 	"DATABASE":                 database,
 	"DATABASES":                databases,
 	"DATE_ADD":                 dateAdd,

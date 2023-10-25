@@ -2587,9 +2587,9 @@ func (n *TableOption) Restore(ctx *format.RestoreCtx) error {
 	case TableOptionTableMapping:
 		ctx.WriteKeyWord("TABLE_MAPPING ")
 		if n.BoolValue {
-			ctx.WriteString("ON")
+			ctx.WriteString("true")
 		} else {
-			ctx.WriteString("OFF")
+			ctx.WriteString("false")
 		}
 	default:
 		return errors.Errorf("invalid TableOption: %d", n.Tp)
