@@ -88,7 +88,7 @@ func createTable(d *ddlCtx, t *meta.Meta, job *model.Job, fkCheck bool) (*model.
 		}
 		// create hbase table here
 		// d.store.
-		info_msg := fmt.Sprintf("prepare create hbase table here: schema name is ", job.SchemaName, ",table name is ", tbInfo.Name)
+		info_msg := fmt.Sprintf("prepare create hbase table here: schema name is %s , table name is %s", job.SchemaName, tbInfo.Name)
 		fmt.Println(info_msg)
 		logutil.Logger(d.ctx).Info(info_msg)
 		// retrive array tbInfo.Columns
@@ -98,7 +98,12 @@ func createTable(d *ddlCtx, t *meta.Meta, job *model.Job, fkCheck bool) (*model.
 		}
 
 		if tbInfo.DataSourceType == datasource.TypeHbase {
-			hbase.HbaseCreateTable(hbase.GetHbaseAdminClient(), job.TableName, []string{"cf"}, 1)
+			if tbInfo.TableMapping {
+				fmt.Println("create hbase mapping table")
+			} else {
+				fmt.Println("create table on hbase")
+				hbase.HbaseCreateTable(hbase.GetHbaseAdminClient(), job.TableName, []string{"cf"}, 1)
+			}
 		}
 
 		failpoint.Inject("checkOwnerCheckAllVersionsWaitTime", func(val failpoint.Value) {
