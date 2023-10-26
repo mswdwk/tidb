@@ -2,6 +2,7 @@ package hbase
 
 import (
 	"fmt"
+	"strings"
 
 	"errors"
 
@@ -67,10 +68,15 @@ func HrpcResult2Chunk(sctx sessionctx.Context, schema *expression.Schema, tblInf
 	kvmap := make(map[int64][]byte, 16)
 	for _, col := range schema.Columns {
 		// colData := hrMap[col.OrigName]
-		if val, ok := hrMap[col.OrigName]; ok {
+		// Bug Fix:
+		// 		INPUT SQL:	select * from tb1 where id = 1 or id = 1
+		//		the col is like 'test.tb1.id' not 'id', then hrMap can not find it.
+		colNames := strings.SplitAfter(col.OrigName, ".")
+		colName := colNames[len(colNames)-1]
+		if val, ok := hrMap[colName]; ok {
 			kvmap[col.ID] = val
 		} else {
-			fmt.Println("Error: can not get column " + col.OrigName)
+			fmt.Println("Error: can not get column " + col.OrigName + " colName " + colName)
 		}
 		fmt.Println("col.OrigName=", col.OrigName, "col.ID=", col.ID, "col.UniqueID=", col.UniqueID)
 	}
