@@ -29,3 +29,12 @@ func GetDataSourceType(name string) uint16 {
 		return TypeTikv
 	}
 }
+
+func GetDataSourceTypeString(dt uint16) string {
+	switch dt {
+	case TypeHbase:
+		return "hbase"
+	default:
+		return ""
+	}
+}

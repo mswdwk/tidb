@@ -28,6 +28,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/bindinfo"
 	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/datasource"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/domain/infosync"
@@ -1281,6 +1282,14 @@ func ConstructResultOfShowCreateTable(ctx sessionctx.Context, tableInfo *model.T
 		if err != nil {
 			return err
 		}
+	}
+
+	// ConstructResultOfShowCreateTable
+	if tableInfo.DataSourceType == datasource.TypeHbase {
+		fmt.Fprintf(buf, " DATA_SOURCE = hbase")
+	}
+	if tableInfo.TableMapping {
+		fmt.Fprintf(buf, " TABLE_MAPPING = true")
 	}
 	return nil
 }
