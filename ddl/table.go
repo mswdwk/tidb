@@ -352,7 +352,7 @@ func onDropTableOrView(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ er
 	if tblInfo.DataSourceType == datasource.TypeHbase {
 		err = hbase.DeleteTable(hbase.GetHbaseAdminClient(), job.TableName)
 		if nil != err {
-			fmt.Println("hbase drop table failed, tableName ", job.TableName)
+			fmt.Printf("hbase drop table failed, tableName %s , error= %s", job.TableName, err)
 		}
 	}
 

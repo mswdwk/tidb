@@ -28,33 +28,33 @@ func displayCells(result *hrpc.Result) {
 	}
 }
 
-func GetOneRowkey(tablename string, rowkey string) (*hrpc.Result, error) {
+func GetOneRowkey(tableName string, rowkey string) (*hrpc.Result, error) {
 	if nil == G_HbaseClient {
 		err := errors.New("hbase cleint is nil")
 		fmt.Println("error: hbase client is nil")
 		return nil, err
 	}
 	// hrpc.MaxVersions(3)
-	var getRequest, err = hrpc.NewGetStr(context.Background(), tablename, rowkey, hrpc.MaxVersions(3))
+	var getRequest, err = hrpc.NewGetStr(context.Background(), tableName, rowkey, hrpc.MaxVersions(3))
 	// getRequest.maxVersions = 3
 	getRsp, err := G_HbaseClient.Get(getRequest) // Get()方法返回查询结果。通过客户端真正读取数据
 
 	if err != nil {
-		fmt.Println("hbase client get rowkey error:"+err.Error(), ",tablename ", tablename)
+		fmt.Println("hbase client get rowkey error:"+err.Error(), ",tableName ", tableName)
 		return nil, err
 	}
-	fmt.Printf("get hbase table %s rowkey %s\n", tablename, rowkey)
+	fmt.Printf("get hbase table %s rowkey %s\n", tableName, rowkey)
 	// displayCells(getRsp)
 	return getRsp, nil
 }
 
-func PutOneRowOneFiled(tablename string, rowkey string, cf string, field string, value string) {
+func PutOneRowOneFiled(tableName string, rowkey string, cf string, field string, value string) {
 	if nil == G_HbaseClient {
 		fmt.Println("error: hbase client is nil")
 		return
 	}
 	values := map[string]map[string][]byte{cf: map[string][]byte{field: []byte(value)}}
-	var putRequest, err = hrpc.NewPutStr(context.Background(), tablename, rowkey, values)
+	var putRequest, err = hrpc.NewPutStr(context.Background(), tableName, rowkey, values)
 	resp, err := G_HbaseClient.Put(putRequest)
 
 	if err != nil {
@@ -62,26 +62,26 @@ func PutOneRowOneFiled(tablename string, rowkey string, cf string, field string,
 		return
 	}
 	fmt.Printf("table %s put rowkey %s [%s:%s] value[%s] , resp partial %t\n",
-		tablename, rowkey, cf, field, value, resp.Partial)
+		tableName, rowkey, cf, field, value, resp.Partial)
 }
 
-func PutOneRowOneCf(tablename string, rowkey string, cf string, field_values map[string][]byte) {
+func PutOneRowOneCf(tableName string, rowkey string, cf string, field_values map[string][]byte) {
 	if nil == G_HbaseClient {
 		fmt.Println("error: hbase client is nil")
 		return
 	}
 	values := map[string]map[string][]byte{cf: field_values}
-	var putRequest, err = hrpc.NewPutStr(context.Background(), tablename, rowkey, values)
+	var putRequest, err = hrpc.NewPutStr(context.Background(), tableName, rowkey, values)
 	resp, err := G_HbaseClient.Put(putRequest)
 
 	if err != nil {
-		fmt.Println("hbase client put one row failed, table ", tablename, ",error "+err.Error())
+		fmt.Println("hbase client put one row failed, table ", tableName, ",error "+err.Error())
 		return
 	}
 	fmt.Printf("table %s put rowkey %s cf=%s field_values=%v , resp partial %t\n",
-		tablename, rowkey, cf, field_values, resp.Partial)
+		tableName, rowkey, cf, field_values, resp.Partial)
 }
-func CheckAndPutOneRow(tablename string, rowkey string, cf string, field string, oldvalue string, newvalue string) {
+func CheckAndPutOneRow(tableName string, rowkey string, cf string, field string, oldvalue string, newvalue string) {
 	// oldValueMap := map[string]map[string][]byte{cf: map[string][]byte{field: []byte(oldvalue)}}
 	// oldValue, err := json.Marshal(oldValueMap)
 	if nil == G_HbaseClient {
@@ -89,7 +89,7 @@ func CheckAndPutOneRow(tablename string, rowkey string, cf string, field string,
 		return
 	}
 	newValueMap := map[string]map[string][]byte{cf: map[string][]byte{field: []byte(newvalue)}}
-	newRequest, _ := hrpc.NewPutStr(context.Background(), tablename, rowkey, newValueMap)
+	newRequest, _ := hrpc.NewPutStr(context.Background(), tableName, rowkey, newValueMap)
 
 	ret, err := G_HbaseClient.CheckAndPut(newRequest, cf, field, []byte(oldvalue))
 
@@ -98,17 +98,17 @@ func CheckAndPutOneRow(tablename string, rowkey string, cf string, field string,
 		return
 	}
 	fmt.Printf("check and put table %s rowkey %s [%s:%s] oldV[%s] newV[%s], ret %t\n",
-		tablename, rowkey, cf, field, oldvalue, newvalue, ret)
+		tableName, rowkey, cf, field, oldvalue, newvalue, ret)
 }
 
-func DeleteOneRow(tablename string, rowkey string) {
+func DeleteOneRow(tableName string, rowkey string) {
 	if nil == G_HbaseClient {
 		fmt.Println("error: hbase client is nil")
 		return
 	}
 	// values := map[string]map[string][]byte{"cf": {"a": []byte(time.Now().String())}}
 	// values := map[string]map[string][]byte{"cf": map[string][]byte{"a": []byte("1")}}
-	putRequest, _ := hrpc.NewDelStr(context.Background(), tablename, rowkey, nil)
+	putRequest, _ := hrpc.NewDelStr(context.Background(), tableName, rowkey, nil)
 	resp, err := G_HbaseClient.Delete(putRequest)
 
 	if err != nil {
@@ -117,11 +117,31 @@ func DeleteOneRow(tablename string, rowkey string) {
 	}
 	displayCells(resp)
 
-	fmt.Println("delete row ok,tablename=", tablename, ",rowkey=", rowkey)
+	fmt.Println("delete row ok,tableName=", tableName, ",rowkey=", rowkey)
 }
 
-// create 'member','member_id','address','info'
-type mystruct struct {
-	Use    string               `json:"user_id" `
-	Movies map[string][]float64 `json:"movies" ` // 用户看的多部电影 "电影id":[打分int,喜好程度float]
+func TableScanRange(tableName string, startRow, stopRow string) {
+	if nil == G_HbaseClient {
+		fmt.Println("error: hbase client is nil")
+		return
+	}
+	// hrpc.MaxVersions(3)
+	request, err := hrpc.NewScanRange(context.Background(), []byte(tableName), []byte(startRow), []byte(stopRow))
+	// getRequest.maxVersions = 3
+	scan := G_HbaseClient.Scan(request) // Scan()方法返回查询结果。通过客户端真正读取数据
+	defer scan.Close()
+	if err != nil {
+		fmt.Println("hbase get client error:" + err.Error())
+		return
+	}
+	fmt.Printf("scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
+
+	for {
+		r, err := scan.Next()
+		if nil != err {
+			fmt.Println("finish scan table " + tableName)
+			break
+		}
+		displayCells(r)
+	}
 }

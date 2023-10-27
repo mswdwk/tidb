@@ -17,9 +17,11 @@ package executor
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pingcap/failpoint"
+	"github.com/pingcap/tidb/datasource"
 	"github.com/pingcap/tidb/distsql"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/domain/infosync"
@@ -248,6 +250,25 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 		}
 		return tableName
 	}), e.ranges)
+
+	// IF DATASOURCE IS HBASE THEN  READ FROM IT
+	tbInfo := e.table.Meta()
+	if tbInfo.DataSourceType == datasource.TypeHbase {
+		//hbaseRowkey := hex.EncodeToString(e.handle.Encoded())
+		info_msg := fmt.Sprintf("prepare to scan hbase table %s", tbInfo.Name.String())
+		fmt.Println(info_msg)
+		logutil.Logger(ctx).Info(info_msg)
+		// TODO: Get dbname/schema as namespace
+		// convert hrpcVal to tikv value []byte
+		/*if val, _ := hbase.GetOneRowkey(tbInfo.Name.String(), hbaseRowkey); nil != val {
+			if len(val.Cells) == 0 {
+				fmt.Printf("no data found from hbase with rowkey %s ,chunk row len %d\n", hbaseRowkey, req.NumRows())
+				return nil
+			}
+			return hbase2chunk(e, val, req)
+		}*/
+	}
+
 	if err := e.resultHandler.nextChunk(ctx, req); err != nil {
 		e.feedback.Invalidate()
 		return err
@@ -424,6 +445,9 @@ func (e *TableReaderExecutor) buildKVReq(ctx context.Context, ranges []*ranger.R
 			}
 			reqBuilder.SetTiDBServerID(serverInfo.ServerIDGetter())
 		}
+	}
+	if e.table != nil && e.table.Meta().DataSourceType == datasource.TypeHbase {
+		fmt.Println("build kv req for hbase table: " + e.table.Meta().Name.String())
 	}
 	reqBuilder.
 		SetDAGRequest(e.dagPB).
