@@ -175,7 +175,7 @@ func TableScanRangeNext(tableName string, startRow, stopRow string, scan *hrpc.S
 	fmt.Printf("NEXT: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
 
 	r, err := (*scan).Next()
-	if nil != err {
+	if nil != err || nil == r || (nil != r && 0 == len(r.Cells)) {
 		fmt.Println("finish scan table " + tableName + " , err " + err.Error())
 		return nil
 	}

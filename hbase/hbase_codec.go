@@ -13,6 +13,7 @@ import (
 )
 
 func EncodeUint(buf []byte, uVal uint64) []byte {
+	return codec.EncodeUint(buf, uVal)
 	var tmp [8]byte
 	binary.BigEndian.PutUint64(tmp[:], uVal)
 	buf = append(buf, tmp[:8]...)
@@ -20,6 +21,7 @@ func EncodeUint(buf []byte, uVal uint64) []byte {
 }
 
 func EncodeInt(buf []byte, uVal int64) []byte {
+	return codec.EncodeInt(buf, uVal)
 	var tmp [8]byte
 	binary.BigEndian.PutUint64(tmp[:], uint64(uVal))
 	buf = append(buf, tmp[:8]...)

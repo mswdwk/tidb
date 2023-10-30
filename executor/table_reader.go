@@ -287,13 +287,21 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 		info_msg := "" // := fmt.Sprintf("prepare to scan hbase table %s", tbInfo.Name.String())
 		fmt.Println(info_msg)
 		logutil.Logger(ctx).Info(info_msg)
-		// TODO: Get dbname/schema as namespace
+		// TODO 1: Get dbname/schema as namespace
+		// TODO 2: update startkey stopkey after NEXT call
+		// TODO 3: hbase scan with filter
+		// TODO 4: HBASE SCAN NEXT method should return nil or 0 or err , when there is no more data, it
+		//         should not return repeated data
 
 		r := hbase.TableScanRangeNext(tbInfo.Name.String(), "", "", e.hbaseScanner)
 		if nil != r && len(r.Cells) > 0 {
+			req.Reset()
 			info_msg = fmt.Sprintf("hbase table scan : %s found %d rows data\n", tbInfo.Name.String(), len(r.Cells))
 		} else {
-			fmt.Printf("hbase table scan: %s no data found ,chunk row len %d\n", tbInfo.Name.String(), req.NumRows())
+			fmt.Printf("hbase table scan: %s no data found ,chunk row len %d, reset it\n", tbInfo.Name.String(), req.NumRows())
+			if 0 != req.NumRows() {
+				req.Reset()
+			}
 			return nil
 		}
 		fmt.Println(info_msg)
