@@ -17,6 +17,7 @@ package executor
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/pingcap/tidb/parser/model"
 	plannercore "github.com/pingcap/tidb/planner/core"
 	"github.com/pingcap/tidb/sessionctx"
+	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/sessiontxn"
 	"github.com/pingcap/tidb/statistics"
 	"github.com/pingcap/tidb/table"
@@ -219,6 +221,28 @@ func (e *TableReaderExecutor) Open(ctx context.Context) error {
 		}
 		return nil
 	}
+	if e.table.Meta().DataSourceType == datasource.TypeHbase {
+		// TODO : SET THE RIGHT ROWKEY according to e.rangesj
+		// firstPartRanges
+
+		var startRowkey, stopRowkey []byte
+		sc := &stmtctx.StatementContext{TimeZone: time.Local}
+
+		startRowkey, err = hbase.EncodeValueDatum(sc, &e.ranges[0].LowVal[0], startRowkey)
+		if err != nil {
+			startRowkey = []byte("")
+			fmt.Println("hbase scan startkey failed, err " + err.Error())
+		}
+		startRowkeyStr := hex.EncodeToString(startRowkey)
+
+		stopRowkey, err := hbase.EncodeValueDatum(sc, &e.ranges[0].HighVal[0], stopRowkey)
+		if err != nil {
+			stopRowkey = []byte("")
+			fmt.Println("hbase scan, stopkey failed, err " + err.Error())
+		}
+		stopRowkeyStr := hex.EncodeToString(stopRowkey)
+		e.hbaseScanner = hbase.TableScanRangeOpen(e.table.Meta().Name.String(), startRowkeyStr, stopRowkeyStr)
+	}
 
 	firstResult, err := e.buildResp(ctx, firstPartRanges)
 	if err != nil {
@@ -236,12 +260,6 @@ func (e *TableReaderExecutor) Open(ctx context.Context) error {
 		return err
 	}
 	e.resultHandler.open(firstResult, secondResult)
-	if e.table.Meta().DataSourceType == datasource.TypeHbase {
-		// TODO : SET THE RIGHT ROWKEY according to e.ranges
-		startRowkey := ""
-		stopRowkey := ""
-		e.hbaseScanner = hbase.TableScanRangeOpen(e.table.Meta().Name.String(), startRowkey, stopRowkey)
-	}
 	return nil
 }
 
@@ -272,18 +290,19 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 		// TODO: Get dbname/schema as namespace
 
 		r := hbase.TableScanRangeNext(tbInfo.Name.String(), "", "", e.hbaseScanner)
-		if len(r.Cells) == 0 {
+		if nil != r && len(r.Cells) > 0 {
+			info_msg = fmt.Sprintf("hbase table scan : %s found %d rows data\n", tbInfo.Name.String(), len(r.Cells))
+		} else {
 			fmt.Printf("hbase table scan: %s no data found ,chunk row len %d\n", tbInfo.Name.String(), req.NumRows())
 			return nil
-		} else {
-			info_msg = fmt.Sprintf("hbase table scan : %s found %d rows data\n", tbInfo.Name.String(), len(r.Cells))
 		}
 		fmt.Println(info_msg)
 		logutil.Logger(ctx).Info(info_msg)
 		// TODO: CREATE HBASE HANDLER like resultHandler *tableResultHandler
 
 		// Convert hrpcVal to tikv value []byte
-		/* return hbase.HrpcResult2Chunk(e.ctx, e.Schema(), e.table.Meta(), nil, r, req, nil) */
+		decoder := NewRowDecoder(e.ctx, e.Schema(), tbInfo)
+		return hbase.HrpcResult2Chunk(e.ctx, e.Schema(), e.table.Meta(), nil, r, req, decoder)
 	}
 
 	if err := e.resultHandler.nextChunk(ctx, req); err != nil {

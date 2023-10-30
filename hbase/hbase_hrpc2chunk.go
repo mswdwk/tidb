@@ -23,15 +23,15 @@ func Cell2Map(h *hrpc.Result) map[string][]byte {
 	m := make(map[string][]byte, 16)
 	for i, v := range h.Cells { // v结构体中的Value保存了真正的数据
 		// value := v.Value
-		fmt.Printf("i:" + string(i))
+		fmt.Printf("i: %d", i)
 		//fmt.Printf("v=%V"+ *v)
 		fmt.Printf("\tRow:" + string(v.Row))
 		fmt.Printf("\tFamily:" + string(v.Family))
 		fmt.Printf("\tQualifier:" + string(v.Qualifier))
 		key := string(v.Qualifier)
-		fmt.Printf("\tvalue:" + string(v.Value))
-		fmt.Printf("\tcellType:" + string(*v.CellType))
-		fmt.Println("\ttags:" + string(v.Tags))
+		fmt.Println("\tvalue:" + string(v.Value))
+		// fmt.Printf("\tcellType:" + string(*v.CellType))
+		// fmt.Println("\ttags:" + string(v.Tags))
 		m[key] = v.Value
 		//      var myuser mystruct
 		//      err := json.Unmarshal(value, &myuser) // value为 []unit8类型的字节数组，所以可以直接放到json.Unmarshal

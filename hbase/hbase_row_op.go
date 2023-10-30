@@ -11,7 +11,7 @@ import (
 func displayCells(result *hrpc.Result) {
 	for i, v := range result.Cells { // v结构体中的Value保存了真正的数据
 		// value := v.Value
-		fmt.Printf("i:" + string(i))
+		fmt.Printf("i: %d", i)
 		//fmt.Printf("v=%V"+ *v)
 		fmt.Printf("\tRow:" + string(v.Row))
 		fmt.Printf("\tFamily:" + string(v.Family))
