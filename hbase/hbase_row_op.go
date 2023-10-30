@@ -125,23 +125,70 @@ func TableScanRange(tableName string, startRow, stopRow string) {
 		fmt.Println("error: hbase client is nil")
 		return
 	}
+	fmt.Printf("scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
 	// hrpc.MaxVersions(3)
 	request, err := hrpc.NewScanRange(context.Background(), []byte(tableName), []byte(startRow), []byte(stopRow))
-	// getRequest.maxVersions = 3
-	scan := G_HbaseClient.Scan(request) // Scan()方法返回查询结果。通过客户端真正读取数据
-	defer scan.Close()
 	if err != nil {
-		fmt.Println("hbase get client error:" + err.Error())
+		fmt.Println("hbase get scanrange error:" + err.Error())
 		return
 	}
-	fmt.Printf("scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
-
+	// getRequest.maxVersions = 3
+	scan := G_HbaseClient.Scan(request) // Scan()方法返回查询结果。通过客户端真正读取数据
 	for {
 		r, err := scan.Next()
 		if nil != err {
-			fmt.Println("finish scan table " + tableName)
+			fmt.Println("finish scan table " + tableName + " , err " + err.Error())
 			break
 		}
 		displayCells(r)
 	}
+}
+
+func TableScanRangeOpen(tableName string, startRow, stopRow string) *hrpc.Scanner {
+	if nil == G_HbaseClient {
+		fmt.Println("error: hbase client is nil")
+		return nil
+	}
+	// hrpc.MaxVersions(3)
+	request, err := hrpc.NewScanRange(context.Background(), []byte(tableName), []byte(startRow), []byte(stopRow))
+	if err != nil {
+		fmt.Println("hbase get client error:" + err.Error())
+		return nil
+	}
+	// getRequest.maxVersions = 3
+	scan := G_HbaseClient.Scan(request) // Scan()方法返回查询结果。通过客户端真正读取数据
+	// defer scan.Close()
+	if scan == nil {
+		fmt.Println("hbase get client error:" + err.Error())
+		return nil
+	}
+	fmt.Printf("OPEN: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
+	return &scan
+}
+
+func TableScanRangeNext(tableName string, startRow, stopRow string, scan *hrpc.Scanner) *hrpc.Result {
+	if nil == G_HbaseClient {
+		fmt.Println("error: hbase client is nil")
+		return nil
+	}
+
+	fmt.Printf("NEXT: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
+
+	r, err := (*scan).Next()
+	if nil != err {
+		fmt.Println("finish scan table " + tableName + " , err " + err.Error())
+		return nil
+	}
+	return r
+}
+
+func TableScanRangeClose(tableName string, startRow, stopRow string, scan *hrpc.Scanner) error {
+	if nil == scan {
+		fmt.Println("error: hbase scan is nil")
+		return errors.New("hbase scan is nil ")
+	}
+	fmt.Printf("CLOSE: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
+
+	err := (*scan).Close()
+	return err
 }

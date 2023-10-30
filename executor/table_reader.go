@@ -26,6 +26,7 @@ import (
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/expression"
+	"github.com/pingcap/tidb/hbase"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/model"
@@ -42,6 +43,7 @@ import (
 	"github.com/pingcap/tidb/util/stringutil"
 	"github.com/pingcap/tidb/util/tracing"
 	"github.com/pingcap/tipb/go-tipb"
+	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/exp/slices"
 )
 
@@ -124,6 +126,9 @@ type TableReaderExecutor struct {
 	// If dummy flag is set, this is not a real TableReader, it just provides the KV ranges for UnionScan.
 	// Used by the temporary table, cached table.
 	dummy bool
+
+	// for hbase table scan usage
+	hbaseScanner *hrpc.Scanner
 }
 
 // Table implements the dataSourceExecutor interface.
@@ -231,6 +236,12 @@ func (e *TableReaderExecutor) Open(ctx context.Context) error {
 		return err
 	}
 	e.resultHandler.open(firstResult, secondResult)
+	if e.table.Meta().DataSourceType == datasource.TypeHbase {
+		// TODO : SET THE RIGHT ROWKEY according to e.ranges
+		startRowkey := ""
+		stopRowkey := ""
+		e.hbaseScanner = hbase.TableScanRangeOpen(e.table.Meta().Name.String(), startRowkey, stopRowkey)
+	}
 	return nil
 }
 
@@ -255,18 +266,24 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 	tbInfo := e.table.Meta()
 	if tbInfo.DataSourceType == datasource.TypeHbase {
 		//hbaseRowkey := hex.EncodeToString(e.handle.Encoded())
-		info_msg := fmt.Sprintf("prepare to scan hbase table %s", tbInfo.Name.String())
+		info_msg := "" // := fmt.Sprintf("prepare to scan hbase table %s", tbInfo.Name.String())
 		fmt.Println(info_msg)
 		logutil.Logger(ctx).Info(info_msg)
 		// TODO: Get dbname/schema as namespace
-		// convert hrpcVal to tikv value []byte
-		/*if val, _ := hbase.GetOneRowkey(tbInfo.Name.String(), hbaseRowkey); nil != val {
-			if len(val.Cells) == 0 {
-				fmt.Printf("no data found from hbase with rowkey %s ,chunk row len %d\n", hbaseRowkey, req.NumRows())
-				return nil
-			}
-			return hbase2chunk(e, val, req)
-		}*/
+
+		r := hbase.TableScanRangeNext(tbInfo.Name.String(), "", "", e.hbaseScanner)
+		if len(r.Cells) == 0 {
+			fmt.Printf("hbase table scan: %s no data found ,chunk row len %d\n", tbInfo.Name.String(), req.NumRows())
+			return nil
+		} else {
+			info_msg = fmt.Sprintf("hbase table scan : %s found %d rows data\n", tbInfo.Name.String(), len(r.Cells))
+		}
+		fmt.Println(info_msg)
+		logutil.Logger(ctx).Info(info_msg)
+		// TODO: CREATE HBASE HANDLER like resultHandler *tableResultHandler
+
+		// Convert hrpcVal to tikv value []byte
+		/* return hbase.HrpcResult2Chunk(e.ctx, e.Schema(), e.table.Meta(), nil, r, req, nil) */
 	}
 
 	if err := e.resultHandler.nextChunk(ctx, req); err != nil {
@@ -285,6 +302,13 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 // Close implements the Executor Close interface.
 func (e *TableReaderExecutor) Close() error {
 	var err error
+	if e.hbaseScanner != nil {
+		err = (*e.hbaseScanner).Close()
+		if nil != err {
+			fmt.Println("close hbase scanner failed, err= " + err.Error())
+		}
+	}
+
 	if e.resultHandler != nil {
 		err = e.resultHandler.Close()
 	}
