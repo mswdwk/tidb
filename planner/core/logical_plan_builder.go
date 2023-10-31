@@ -27,6 +27,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
+	"github.com/pingcap/tidb/datasource"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/expression/aggregation"
@@ -4392,6 +4393,9 @@ func (b *PlanBuilder) buildDataSource(ctx context.Context, tn *ast.TableName, as
 		return nil, err
 	}
 	tableInfo := tbl.Meta()
+	if tableInfo.DataSourceType == datasource.TypeHbase {
+		fmt.Println("this is hbase table :" + tableInfo.Name.String())
+	}
 
 	if b.isCreateView && tableInfo.TempTableType == model.TempTableLocal {
 		return nil, ErrViewSelectTemporaryTable.GenWithStackByArgs(tn.Name)

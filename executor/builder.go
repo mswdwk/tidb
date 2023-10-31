@@ -17,6 +17,7 @@ package executor
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"github.com/pingcap/kvproto/pkg/diagnosticspb"
 	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/datasource"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/ddl/placement"
 	"github.com/pingcap/tidb/distsql"
@@ -3476,6 +3478,10 @@ func (b *executorBuilder) buildTableReader(v *plannercore.PhysicalTableReader) E
 
 	if ret.table.Meta().TempTableType != model.TempTableNone {
 		ret.dummy = true
+	}
+
+	if ret.table.Meta().DataSourceType == datasource.TypeHbase {
+		fmt.Println("build hbase table reader: " + ret.table.Meta().Name.String())
 	}
 
 	ret.ranges = ts.Ranges
