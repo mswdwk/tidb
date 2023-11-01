@@ -74,9 +74,10 @@ func HbaseCreateTable(client gohbase.AdminClient, table string, cFamilies []stri
 	}
 	// TODO: optimize
 	// pre-split table for reverse scan test of region changes
-	keySplits := [][]byte{[]byte("REVTEST-100"), []byte("REVTEST-200"), []byte("REVTEST-300")}
+	// keySplits := [][]byte{[]byte("REVTEST-100"), []byte("REVTEST-200"), []byte("REVTEST-300")}
 	hrpc.MaxVersions(maxVersion)
-	ct := hrpc.NewCreateTable(context.Background(), []byte(table), cf, hrpc.SplitKeys(keySplits))
+	// ct := hrpc.NewCreateTable(context.Background(), []byte(table), cf, hrpc.SplitKeys(keySplits))
+	ct := hrpc.NewCreateTable(context.Background(), []byte(table), cf)
 	if err := client.CreateTable(ct); err != nil {
 		return err
 	}
