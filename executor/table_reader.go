@@ -296,7 +296,7 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 		r := hbase.TableScanRangeNext(tbInfo.Name.String(), "", "", e.hbaseScanner)
 		if nil != r && len(r.Cells) > 0 {
 			req.Reset()
-			info_msg = fmt.Sprintf("hbase table scan : %s found %d rows data\n", tbInfo.Name.String(), len(r.Cells))
+			info_msg = fmt.Sprintf("hbase table scan : %s found %d hbase cells data\n", tbInfo.Name.String(), len(r.Cells))
 		} else {
 			fmt.Printf("hbase table scan: %s no data found ,chunk row len %d, reset it\n", tbInfo.Name.String(), req.NumRows())
 			if 0 != req.NumRows() {

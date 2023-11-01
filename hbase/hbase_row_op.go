@@ -166,6 +166,8 @@ func TableScanRangeOpen(tableName string, startRow, stopRow string) *hrpc.Scanne
 	return &scan
 }
 
+// TODO HBASE: ADD FILTER, LIKE TestNewScan
+
 func TableScanRangeNext(tableName string, startRow, stopRow string, scan *hrpc.Scanner) *hrpc.Result {
 	if nil == G_HbaseClient {
 		fmt.Println("error: hbase client is nil")
@@ -176,7 +178,7 @@ func TableScanRangeNext(tableName string, startRow, stopRow string, scan *hrpc.S
 
 	r, err := (*scan).Next()
 	if nil != err || nil == r || (nil != r && 0 == len(r.Cells)) {
-		fmt.Println("finish scan table " + tableName + " , err " + err.Error())
+		fmt.Println("finish scan hbase table " + tableName + " , err " + err.Error())
 		return nil
 	}
 	return r
