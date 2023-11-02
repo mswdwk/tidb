@@ -9,7 +9,7 @@ import (
 )
 
 // reference TestCrossValidationSelectivity
-
+// consider multi column primary key
 /*
 	hbase table hb1 (dataSource s1):   id >  1 and id < 100
 	tikv  table tb1 (dataSource s2):   id >=100
@@ -39,7 +39,7 @@ import (
 		plan 2 (datasource s2): select * from tb1 where id > 50 and id < 200
 */
 
-func TestSelection(t *testing.T) {
+func TestSelection2(t *testing.T) {
 	store, dom := testkit.CreateMockStoreAndDomain(t)
 	tk := testkit.NewTestKit(t, store)
 	h := dom.StatsHandle()
