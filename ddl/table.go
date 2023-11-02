@@ -86,18 +86,17 @@ func createTable(d *ddlCtx, t *meta.Meta, job *model.Job, fkCheck bool) (*model.
 		if err != nil {
 			return tbInfo, errors.Trace(err)
 		}
-		// create hbase table here
-		// d.store.
-		info_msg := fmt.Sprintf("prepare create hbase table here: schema name is %s , table name is %s", job.SchemaName, tbInfo.Name)
-		fmt.Println(info_msg)
-		logutil.Logger(d.ctx).Info(info_msg)
-		// retrive array tbInfo.Columns
-		for i, col := range tbInfo.Columns {
-			// col = tbInfo.Columns[i]
-			fmt.Println("table column id ", i, ", name ", col.Name, ",field type ", col.FieldType.GetType())
-		}
 
 		if tbInfo.DataSourceType == datasource.TypeHbase {
+			// create hbase table here
+			// d.store.
+			info_msg := fmt.Sprintf("prepare create hbase table here: schema name is %s , table name is %s", job.SchemaName, tbInfo.Name)
+			fmt.Println(info_msg)
+			logutil.Logger(d.ctx).Info(info_msg)
+			for i, col := range tbInfo.Columns {
+				// col = tbInfo.Columns[i]
+				fmt.Println("hbase table column id ", i, ", name ", col.Name, ",field type ", col.FieldType.GetType())
+			}
 			if tbInfo.TableMapping {
 				fmt.Println("create hbase mapping table")
 			} else {

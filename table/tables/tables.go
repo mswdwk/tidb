@@ -900,7 +900,7 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 			",tikv val=" + string(value))
 		hbase.PutOneRowOneCf(tbName, hbaseRowkey.String(), "cf", fieldsValue)
 	} else {
-		fmt.Println("insert into tikv table ", tbName, ", key ", string(key), ",len(value) ", len(value))
+		fmt.Println("insert into tikv table ", tbName, ", len(key) ", len(key), ",len(value) ", len(value))
 	}
 
 	failpoint.Inject("addRecordForceAssertExist", func() {
