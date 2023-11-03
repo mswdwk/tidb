@@ -30,7 +30,6 @@ import (
 				select * from hb1
 			else
 				select * from tb1
-			end
 
 	INPUT SQL:
 		select * from v1 where id > 50 and id < 200

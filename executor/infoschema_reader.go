@@ -1291,6 +1291,8 @@ func (e *memtableRetriever) setDataFromViews(ctx sessionctx.Context, schemas []*
 				table.View.Security.String(),    // SECURITY_TYPE
 				charset,                         // CHARACTER_SET_CLIENT
 				collation,                       // COLLATION_CONNECTION
+				table.View.SelectStmt2,          // VIEW_DEFINITION2
+				table.View.Expr,                 // VIEW_EXPR
 			)
 			rows = append(rows, record)
 		}

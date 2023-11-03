@@ -59,6 +59,7 @@ import (
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/collate"
 	"github.com/pingcap/tidb/util/dbterror"
+	"github.com/pingcap/tidb/util/generatedexpr"
 	"github.com/pingcap/tidb/util/hack"
 	"github.com/pingcap/tidb/util/hint"
 	"github.com/pingcap/tidb/util/logutil"
@@ -4458,6 +4459,9 @@ func (b *PlanBuilder) buildDataSource(ctx context.Context, tn *ast.TableName, as
 				b.hintProcessor.QbNameUsed4View[qbName] = struct{}{}
 			}
 		}
+		if len(tableInfo.View.SelectStmt2) > 0 {
+			return b.BuildDataSourceFromView2(ctx, dbName, tableInfo, currentQBNameMap4View, currentViewHints)
+		}
 		return b.BuildDataSourceFromView(ctx, dbName, tableInfo, currentQBNameMap4View, currentViewHints)
 	}
 
@@ -5021,6 +5025,7 @@ func (b *PlanBuilder) BuildDataSourceFromView(ctx context.Context, dbName model.
 	viewParser.SetParserConfig(b.ctx.GetSessionVars().BuildParserConfig())
 	// TODO:  Calculate DataSource Here
 	// TODO:  HOW TO DEAL WITH 2 DataSource
+
 	selectNode, err := viewParser.ParseOneStmt(tableInfo.View.SelectStmt, charset, collation)
 	if err != nil {
 		return nil, err
@@ -7315,4 +7320,137 @@ func getResultCTESchema(seedSchema *expression.Schema, svar *variable.SessionVar
 		col.CleanHashCode()
 	}
 	return res
+}
+
+func (b *PlanBuilder) BuildDataSourceFromView2(ctx context.Context, dbName model.CIStr, tableInfo *model.TableInfo, qbNameMap4View map[string][]ast.HintTable, viewHints map[string][]*ast.TableOptimizerHint) (LogicalPlan, error) {
+	viewDepth := b.ctx.GetSessionVars().StmtCtx.ViewDepth
+	b.ctx.GetSessionVars().StmtCtx.ViewDepth++
+	deferFunc, err := b.checkRecursiveView(dbName, tableInfo.Name)
+	if err != nil {
+		return nil, err
+	}
+	defer deferFunc()
+	fmt.Println("enter view data source calculate: expr=" + tableInfo.View.Expr)
+	charset, collation := b.ctx.GetSessionVars().GetCharsetInfo()
+	viewParser := parser.New()
+	viewParser.SetParserConfig(b.ctx.GetSessionVars().BuildParserConfig())
+	// TODO:  Calculate DataSource Here
+	// TODO:  HOW TO DEAL WITH 2 DataSource
+
+	expr, err := generatedexpr.ParseExpression(tableInfo.View.Expr)
+
+	// TODO : transfer expr to set range, then compare two set , who contains another
+	if nil != err {
+		return nil, err
+	}
+	fmt.Printf("expr type: %v\n", expr.GetType())
+
+	selectNode, err := viewParser.ParseOneStmt(tableInfo.View.SelectStmt, charset, collation)
+	if err != nil {
+		return nil, err
+	}
+	originalVisitInfo := b.visitInfo
+	b.visitInfo = make([]visitInfo, 0)
+
+	// For the case that views appear in CTE queries,
+	// we need to save the CTEs after the views are established.
+	var saveCte []*cteInfo
+	if len(b.outerCTEs) > 0 {
+		saveCte = make([]*cteInfo, len(b.outerCTEs))
+		copy(saveCte, b.outerCTEs)
+	} else {
+		saveCte = nil
+	}
+	o := b.buildingCTE
+	b.buildingCTE = false
+	defer func() {
+		b.outerCTEs = saveCte
+		b.buildingCTE = o
+	}()
+
+	hintProcessor := &hint.BlockHintProcessor{Ctx: b.ctx}
+	selectNode.Accept(hintProcessor)
+	currentQbNameMap4View := make(map[string][]ast.HintTable)
+	currentQbHints4View := make(map[string][]*ast.TableOptimizerHint)
+	currentQbHints := make(map[int][]*ast.TableOptimizerHint)
+	currentQbNameMap := make(map[string]int)
+
+	for qbName, viewQbNameHint := range qbNameMap4View {
+		// Check whether the view hint belong the current view or its nested views.
+		selectOffset := -1
+		if len(viewQbNameHint) == 0 {
+			selectOffset = 1
+		} else if len(viewQbNameHint) == 1 && viewQbNameHint[0].TableName.L == "" {
+			selectOffset = hintProcessor.GetHintOffset(viewQbNameHint[0].QBName, -1)
+		} else {
+			currentQbNameMap4View[qbName] = viewQbNameHint
+			currentQbHints4View[qbName] = viewHints[qbName]
+		}
+
+		if selectOffset != -1 {
+			// If the hint belongs to the current view and not belongs to it's nested views, we should convert the view hint to the normal hint.
+			// After we convert the view hint to the normal hint, it can be reused the origin hint's infrastructure.
+			currentQbHints[selectOffset] = viewHints[qbName]
+			currentQbNameMap[qbName] = selectOffset
+
+			delete(qbNameMap4View, qbName)
+			delete(viewHints, qbName)
+		}
+	}
+
+	hintProcessor.QbNameMap4View = qbNameMap4View
+	hintProcessor.QbHints4View = viewHints
+	hintProcessor.QbNameUsed4View = make(map[string]struct{})
+	hintProcessor.QbHints = currentQbHints
+	hintProcessor.QbNameMap = currentQbNameMap
+
+	originHintProcessor := b.hintProcessor
+	originPlannerSelectBlockAsName := b.ctx.GetSessionVars().PlannerSelectBlockAsName
+	b.hintProcessor = hintProcessor
+	b.ctx.GetSessionVars().PlannerSelectBlockAsName = make([]ast.HintTable, hintProcessor.MaxSelectStmtOffset()+1)
+	defer func() {
+		b.hintProcessor.HandleUnusedViewHints()
+		b.hintProcessor = originHintProcessor
+		b.ctx.GetSessionVars().PlannerSelectBlockAsName = originPlannerSelectBlockAsName
+	}()
+	selectLogicalPlan, err := b.Build(ctx, selectNode)
+	if err != nil {
+		if terror.ErrorNotEqual(err, ErrViewRecursive) &&
+			terror.ErrorNotEqual(err, ErrNoSuchTable) &&
+			terror.ErrorNotEqual(err, ErrInternal) &&
+			terror.ErrorNotEqual(err, ErrFieldNotInGroupBy) &&
+			terror.ErrorNotEqual(err, ErrMixOfGroupFuncAndFields) &&
+			terror.ErrorNotEqual(err, ErrViewNoExplain) {
+			err = ErrViewInvalid.GenWithStackByArgs(dbName.O, tableInfo.Name.O)
+		}
+		return nil, err
+	}
+	pm := privilege.GetPrivilegeManager(b.ctx)
+	if viewDepth != 0 &&
+		b.ctx.GetSessionVars().StmtCtx.InExplainStmt &&
+		pm != nil &&
+		!pm.RequestVerification(b.ctx.GetSessionVars().ActiveRoles, dbName.L, tableInfo.Name.L, "", mysql.SelectPriv) {
+		return nil, ErrViewNoExplain
+	}
+	if tableInfo.View.Security == model.SecurityDefiner {
+		if pm != nil {
+			for _, v := range b.visitInfo {
+				if !pm.RequestVerificationWithUser(v.db, v.table, v.column, v.privilege, tableInfo.View.Definer) {
+					return nil, ErrViewInvalid.GenWithStackByArgs(dbName.O, tableInfo.Name.O)
+				}
+			}
+		}
+		b.visitInfo = b.visitInfo[:0]
+	}
+	b.visitInfo = append(originalVisitInfo, b.visitInfo...)
+
+	if b.ctx.GetSessionVars().StmtCtx.InExplainStmt {
+		b.visitInfo = appendVisitInfo(b.visitInfo, mysql.ShowViewPriv, dbName.L, tableInfo.Name.L, "", ErrViewNoExplain)
+	}
+
+	if len(tableInfo.Columns) != selectLogicalPlan.Schema().Len() {
+		return nil, ErrViewInvalid.GenWithStackByArgs(dbName.O, tableInfo.Name.O)
+	}
+
+	return b.buildProjUponView(ctx, dbName, tableInfo, selectLogicalPlan)
 }

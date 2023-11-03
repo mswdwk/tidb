@@ -691,6 +691,8 @@ var tableViewsCols = []columnInfo{
 	{name: "SECURITY_TYPE", tp: mysql.TypeVarchar, size: 7, flag: mysql.NotNullFlag},
 	{name: "CHARACTER_SET_CLIENT", tp: mysql.TypeVarchar, size: 32, flag: mysql.NotNullFlag},
 	{name: "COLLATION_CONNECTION", tp: mysql.TypeVarchar, size: 32, flag: mysql.NotNullFlag},
+	{name: "VIEW_DEFINITION2", tp: mysql.TypeLongBlob},
+	{name: "VIEW_EXPR", tp: mysql.TypeVarchar, size: 128},
 }
 
 var tableRoutinesCols = []columnInfo{
