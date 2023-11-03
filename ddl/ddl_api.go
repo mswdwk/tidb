@@ -2847,8 +2847,24 @@ func BuildViewInfo(ctx sessionctx.Context, s *ast.CreateViewStmt) (*model.ViewIn
 		return nil, err
 	}
 
+	var sb2 strings.Builder
+	if nil != s.Select2 {
+		if err := s.Select2.Restore(format.NewRestoreCtx(restoreFlag, &sb2)); err != nil {
+			return nil, err
+		}
+	}
+
+	var expr strings.Builder
+	if len(s.Expr) > 0 {
+		// HBASE TODO: Multi Expr
+		if err := s.Expr[0].Restore(format.NewRestoreCtx(restoreFlag, &expr)); err != nil {
+			return nil, err
+		}
+	}
+
 	return &model.ViewInfo{Definer: s.Definer, Algorithm: s.Algorithm,
-		Security: s.Security, SelectStmt: sb.String(), CheckOption: s.CheckOption, Cols: nil}, nil
+		Security: s.Security, SelectStmt: sb.String(), CheckOption: s.CheckOption, Cols: nil, SelectStmt2: sb2.String(),
+		Expr: expr.String()}, nil
 }
 
 func checkPartitionByHash(ctx sessionctx.Context, tbInfo *model.TableInfo) error {

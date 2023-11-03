@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-        "name": "Debug Launch",
+        "name": "Launch",
         "type": "go",
         "request": "launch",
         "mode": "debug",
@@ -14,13 +14,13 @@
         "args": ["--store=tikv","--path=\"127.0.0.1:2379\"" ,"--log-file=/tmp/tidb.log","--hbase-path=\"127.0.0.1:12181\"" ]
        },
        {
-        "name": "Attach Launch",
+        "name": "Attach",
         "type": "go",
         "request": "attach",
         "mode": "local",
         "env": {}, // "hbasePath":"127.0.0.1:2181"
         "args": ["--store=tikv","--path=127.0.0.1:2379" ,"--log-file=/tmp/tidb.log","--hbase-path=127.0.0.1:12181" ],
-        "processId": 25113
+        "processId": 35079
        }
     ]
 }

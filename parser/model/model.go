@@ -1111,6 +1111,10 @@ type ViewInfo struct {
 	SelectStmt  string             `json:"view_select"`
 	CheckOption ViewCheckOption    `json:"view_checkoption"`
 	Cols        []CIStr            `json:"view_cols"`
+	// ADD expr and SelectStmt2
+	SelectStmt2 string `json:"view_select2"`
+	// For judge datasource usage
+	Expr string `json:"view_expr"`
 }
 
 const (

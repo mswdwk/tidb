@@ -4393,6 +4393,9 @@ func (b *PlanBuilder) buildDataSource(ctx context.Context, tn *ast.TableName, as
 		return nil, err
 	}
 	tableInfo := tbl.Meta()
+	if tableInfo.IsView() && tableInfo.Name.String() == "v1" {
+		fmt.Println("this is view v1")
+	}
 	if tableInfo.DataSourceType == datasource.TypeHbase {
 		fmt.Println("this is hbase table :" + tableInfo.Name.String())
 	}
@@ -5016,6 +5019,8 @@ func (b *PlanBuilder) BuildDataSourceFromView(ctx context.Context, dbName model.
 	charset, collation := b.ctx.GetSessionVars().GetCharsetInfo()
 	viewParser := parser.New()
 	viewParser.SetParserConfig(b.ctx.GetSessionVars().BuildParserConfig())
+	// TODO:  Calculate DataSource Here
+	// TODO:  HOW TO DEAL WITH 2 DataSource
 	selectNode, err := viewParser.ParseOneStmt(tableInfo.View.SelectStmt, charset, collation)
 	if err != nil {
 		return nil, err

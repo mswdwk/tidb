@@ -4622,7 +4622,7 @@ func (b *PlanBuilder) buildDDL(ctx context.Context, node ast.DDLNode) (Plan, err
 		if stmt := findStmtAsViewSchema(v); stmt != nil {
 			stmt.AsViewSchema = true
 		}
-
+		// TODO: Multi DataSource , another is v.Select2
 		plan, err := b.Build(ctx, v.Select)
 		if err != nil {
 			return nil, err
