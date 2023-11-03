@@ -1447,6 +1447,9 @@ type CreateViewStmt struct {
 	Definer     *auth.UserIdentity
 	Security    model.ViewSecurity
 	CheckOption model.ViewCheckOption
+	MultiSource bool
+	Select2     StmtNode
+	Expr        []ExprNode
 }
 
 // Restore implements Node interface.

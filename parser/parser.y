@@ -4552,7 +4552,35 @@ LikeTableWithOrWithoutParen:
  *          as select Col1,Col2 from table WITH LOCAL CHECK OPTION
  *******************************************************************/
 CreateViewStmt:
-	"CREATE" OrReplace ViewAlgorithm ViewDefiner ViewSQLSecurity "VIEW" ViewName ViewFieldList "AS" CreateViewSelectOpt ViewCheckOption
+	"CREATE" OrReplace ViewAlgorithm ViewDefiner ViewSQLSecurity "VIEW" ViewName ViewFieldList "IF" ExpressionList "THEN" CreateViewSelectOpt "ELSE" CreateViewSelectOpt
+	{
+		startOffset := parser.startOffset(&yyS[yypt-2])
+		selStmt := $12.(ast.StmtNode)
+		selStmt.SetText(parser.lexer.client, strings.TrimSpace(parser.src[startOffset:]))
+
+		startOffset2 := parser.startOffset(&yyS[yypt])
+		selStmt2 := $14.(ast.StmtNode)
+		selStmt2.SetText(parser.lexer.client, strings.TrimSpace(parser.src[startOffset2:]))
+
+		expr := $10.([]ast.ExprNode)
+		x := &ast.CreateViewStmt{
+			OrReplace:   $2.(bool),
+			ViewName:    $7.(*ast.TableName),
+			Select:      selStmt,
+			Algorithm:   $3.(model.ViewAlgorithm),
+			Definer:     $4.(*auth.UserIdentity),
+			Security:    $5.(model.ViewSecurity),
+			MultiSource: true,
+			Select2:     selStmt2,
+			Expr:        expr,
+		}
+		if $8 != nil {
+			x.Cols = $8.([]model.CIStr)
+		}
+
+		$$ = x
+	}
+|	"CREATE" OrReplace ViewAlgorithm ViewDefiner ViewSQLSecurity "VIEW" ViewName ViewFieldList "AS" CreateViewSelectOpt ViewCheckOption
 	{
 		startOffset := parser.startOffset(&yyS[yypt-1])
 		selStmt := $10.(ast.StmtNode)

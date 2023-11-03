@@ -39,6 +39,19 @@ import (
 		plan 2 (datasource s2): select * from tb1 where id > 50 and id < 200
 */
 
+func TestCreateView(t *testing.T) {
+	store, dom := testkit.CreateMockStoreAndDomain(t)
+	tk := testkit.NewTestKit(t, store)
+	dom.StatsHandle()
+	tk.MustExec("use test")
+	tk.MustExec("set @@tidb_analyze_version = 1")
+	tk.MustExec("create table hb1 (id int primary key, name varchar(64))")
+	tk.MustExec("create table tb1 (id int primary key, name varchar(64))")
+	tk.MustExec("create view v1 if id >= 100 then select * from hb1 else select * from tb1")
+	tk.MustExec("insert into tb1 values (10,'name 10'),(30,'name 30'),(60,'name 60'),(90,'name 90')")
+	tk.MustExec("insert into hb1 values (100,'name 100'), (150,'name 150'),(200,'name 200'),(300,'name 300')")
+}
+
 func TestSelection(t *testing.T) {
 	store, dom := testkit.CreateMockStoreAndDomain(t)
 	tk := testkit.NewTestKit(t, store)
@@ -49,6 +62,7 @@ func TestSelection(t *testing.T) {
 	tk.MustExec("set @@tidb_analyze_version = 1")
 	tk.MustExec("create table hb1 (id int primary key, name varchar(64))")
 	tk.MustExec("create table tb1 (id int primary key, name varchar(64))")
+	tk.MustExec("create view v1 as  select * from hb1")
 	require.NoError(t, h.HandleDDLEvent(<-h.DDLEventCh()))
 	tk.MustExec("insert into tb1 values (10,'name 10'),(30,'name 30'),(60,'name 60'),(90,'name 90')")
 	tk.MustExec("insert into hb1 values (100,'name 100'), (150,'name 150'),(200,'name 200'),(300,'name 300')")
