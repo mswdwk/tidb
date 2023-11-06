@@ -7347,13 +7347,22 @@ func (b *PlanBuilder) BuildDataSourceFromView2(ctx context.Context, dbName model
 	}
 	// TODO : transfer expr to set range, then compare two set , who contains another
 	// var where *ast.ExprNode = b.ctx.Value(hbase.SessionAstStmtWhereKey)
-	view_where := b.ctx.Value(hbase.SessionAstStmtWhereKey)
-	if nil == view_where {
-		fmt.Println("DataSource Calculate: view_where is nil")
+	select_from_view_where := b.ctx.Value(hbase.SessionAstStmtWhereKey)
+	union_sql := tableInfo.View.SelectStmt
+	if nil == select_from_view_where {
+		fmt.Println("DataSource Calculate: select_from_view_where is nil")
+		union_sql = fmt.Sprintf("%s union %s ", tableInfo.View.SelectStmt, tableInfo.View.SelectStmt2)
+	} else {
+		wsb := strings.Builder{}
+		if where, ok := select_from_view_where.(ast.ExprNode); ok {
+			where.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &wsb))
+		}
+		fmt.Printf("view expr type: %s current select_from_view_where: %s\n", expr.Text(), select_from_view_where)
+		union_sql = fmt.Sprintf("%s where %s union %s where %s", tableInfo.View.SelectStmt, wsb.String(), tableInfo.View.SelectStmt2, wsb.String())
 	}
-	fmt.Printf("view expr type: %s current view_where: %s\n", expr.Text(), view_where)
+	fmt.Println("union_sql = " + union_sql)
 
-	selectNode, err := viewParser.ParseOneStmt(tableInfo.View.SelectStmt, charset, collation)
+	selectNode, err := viewParser.ParseOneStmt(union_sql, charset, collation)
 	if err != nil {
 		return nil, err
 	}
@@ -7422,6 +7431,7 @@ func (b *PlanBuilder) BuildDataSourceFromView2(ctx context.Context, dbName model
 		b.ctx.GetSessionVars().PlannerSelectBlockAsName = originPlannerSelectBlockAsName
 	}()
 	selectLogicalPlan, err := b.Build(ctx, selectNode)
+
 	if err != nil {
 		if terror.ErrorNotEqual(err, ErrViewRecursive) &&
 			terror.ErrorNotEqual(err, ErrNoSuchTable) &&
