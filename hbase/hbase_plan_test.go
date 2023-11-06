@@ -1,10 +1,16 @@
 package hbase_test
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/pingcap/tidb/parser/ast"
+	driver "github.com/pingcap/tidb/types/parser_driver"
 
 	"github.com/pingcap/tidb/statistics/handle"
 	"github.com/pingcap/tidb/testkit"
+	"github.com/pingcap/tidb/util/generatedexpr"
+	"github.com/pingcap/tidb/util/ranger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -130,3 +136,80 @@ mysql> explain format='brief' select tb1.id,tb1.name from tb1 where  tb1.id > 50
 +----------------------------+---------+-----------+---------------+-----------------------------------------------------------------------------------------------------+
 6 rows in set (0.00 sec)
 */
+
+type data_source_visitor struct {
+	node_enter_counter int
+	node_leave_counter int
+	result_data_source []string
+	/*
+		d1:  range (1,100]
+		d2:  range (100,300)
+	*/
+	data_source_def map[string]ranger.Range
+}
+
+func (v *data_source_visitor) Enter(in ast.Node) (out ast.Node, skipChildren bool) {
+	v.node_enter_counter++
+	fmt.Printf("v.node_enter_counter %03d\t", v.node_enter_counter)
+	switch p := in.(type) {
+	case (*ast.BinaryOperationExpr):
+		{
+			//p := in.(*ast.BinaryOperationExpr)
+			fmt.Printf("%T org_text= %s text=%s op= %s\n", in, in.OriginalText(), in.Text(), p.Op.String())
+		}
+	case (*ast.ColumnNameExpr):
+		{
+			fmt.Printf("column expr name: %s\n", p.Name.Name.String())
+		}
+	case *driver.ValueExpr:
+		{
+			fmt.Printf("column value: %v\n", p.GetValue())
+		}
+	case *ast.ColumnName:
+		{
+			fmt.Printf("column name: %s\n", p.Name.String())
+		}
+	default:
+		{
+			fmt.Printf("default in type = %T \n", in)
+		}
+	}
+
+	return in, false
+}
+
+func (v *data_source_visitor) Leave(in ast.Node) (out ast.Node, ok bool) {
+	// leave time point , calculate data source
+	v.node_leave_counter++
+	fmt.Printf("v.node_leave_counter %03d\t", v.node_leave_counter)
+	switch p := in.(type) {
+	case (*ast.BinaryOperationExpr):
+		{
+			fmt.Printf("%T org_text= %s text=%s op= %s\n", in, in.OriginalText(), in.Text(), p.Op.String())
+		}
+	case (*ast.ColumnNameExpr):
+		{
+			fmt.Printf("column expr name: %s\n", p.Name.Name.String())
+		}
+	case *driver.ValueExpr:
+		{
+			fmt.Printf("column value: %v\n", p.GetValue())
+		}
+	case *ast.ColumnName:
+		{
+			fmt.Printf("column name: %s\n", p.Name.String())
+		}
+	default:
+		{
+			fmt.Printf("default in type = %T \n", in)
+		}
+	}
+
+	return in, true
+}
+
+func TestExprVistor(t *testing.T) {
+	expr, _ := generatedexpr.ParseExpression("id > 10 and id < 100 or id = 1 or id < 300 and id >= 210 ")
+	v := data_source_visitor{}
+	_, _ = expr.Accept(&v)
+}

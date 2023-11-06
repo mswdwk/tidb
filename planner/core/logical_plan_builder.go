@@ -31,6 +31,7 @@ import (
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/expression/aggregation"
+	"github.com/pingcap/tidb/hbase"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
@@ -3926,6 +3927,7 @@ func (b *PlanBuilder) buildSelect(ctx context.Context, sel *ast.SelectStmt) (p L
 		}
 	}
 
+	b.ctx.SetValue(hbase.SessionAstStmtWhereKey, sel.Where)
 	p, err = b.buildTableRefs(ctx, sel.From)
 	if err != nil {
 		return nil, err
@@ -4459,6 +4461,7 @@ func (b *PlanBuilder) buildDataSource(ctx context.Context, tn *ast.TableName, as
 				b.hintProcessor.QbNameUsed4View[qbName] = struct{}{}
 			}
 		}
+		// buildSelection  sel.where
 		if len(tableInfo.View.SelectStmt2) > 0 {
 			return b.BuildDataSourceFromView2(ctx, dbName, tableInfo, currentQBNameMap4View, currentViewHints)
 		}
@@ -7330,7 +7333,7 @@ func (b *PlanBuilder) BuildDataSourceFromView2(ctx context.Context, dbName model
 		return nil, err
 	}
 	defer deferFunc()
-	fmt.Println("enter view data source calculate: expr=" + tableInfo.View.Expr)
+	fmt.Println("enter view data source calculate: expr is " + tableInfo.View.Expr)
 	charset, collation := b.ctx.GetSessionVars().GetCharsetInfo()
 	viewParser := parser.New()
 	viewParser.SetParserConfig(b.ctx.GetSessionVars().BuildParserConfig())
@@ -7339,11 +7342,16 @@ func (b *PlanBuilder) BuildDataSourceFromView2(ctx context.Context, dbName model
 
 	expr, err := generatedexpr.ParseExpression(tableInfo.View.Expr)
 
-	// TODO : transfer expr to set range, then compare two set , who contains another
 	if nil != err {
 		return nil, err
 	}
-	fmt.Printf("expr type: %v\n", expr.GetType())
+	// TODO : transfer expr to set range, then compare two set , who contains another
+	// var where *ast.ExprNode = b.ctx.Value(hbase.SessionAstStmtWhereKey)
+	view_where := b.ctx.Value(hbase.SessionAstStmtWhereKey)
+	if nil == view_where {
+		fmt.Println("DataSource Calculate: view_where is nil")
+	}
+	fmt.Printf("view expr type: %s current view_where: %s\n", expr.Text(), view_where)
 
 	selectNode, err := viewParser.ParseOneStmt(tableInfo.View.SelectStmt, charset, collation)
 	if err != nil {
