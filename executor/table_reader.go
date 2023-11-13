@@ -309,8 +309,23 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 		// TODO: CREATE HBASE HANDLER like resultHandler *tableResultHandler
 
 		// Convert hrpcVal to tikv value []byte
-		decoder := NewRowDecoder(e.ctx, e.Schema(), tbInfo)
-		return hbase.HrpcResult2Chunk(e.ctx, e.Schema(), e.table.Meta(), nil, r, req, decoder)
+		schema := e.Schema()
+		// for count(*) , the schema len is 1 , and Name str is ''.
+		if nil == e.Schema() {
+			columns := tbInfo.Columns
+			schema := expression.NewSchema(make([]*expression.Column, 0, len(columns))...)
+			for i, col := range columns {
+				schema.Append(&expression.Column{
+					UniqueID: int64(i),
+					ID:       col.ID,
+					RetType:  &col.FieldType,
+					OrigName: col.Name.O,
+				})
+			}
+			fmt.Println("schema is nil ,maybe it's select count(*),so calculate schema auto!")
+		}
+		decoder := NewRowDecoder(e.ctx, schema, tbInfo)
+		return hbase.HrpcResult2Chunk(e.ctx, schema, tbInfo, nil, r, req, decoder)
 	}
 
 	if err := e.resultHandler.nextChunk(ctx, req); err != nil {

@@ -634,6 +634,9 @@ func (decoder *ChunkDecoder) DecodeToChunk2(sc *stmtctx.StatementContext, rowDat
 		isNil := false
 		fmt.Println("Hbase data convert colIdx=", colIdx, " col.ID:", col.ID, ",notFound:", notFound, ",isNil:",
 			isNil, ",byte len=", len(colData), "col.Ft.type=", col.Ft.GetType())
+		if notFound {
+			return errors.New("not found column!")
+		}
 		err := decoder.decodeColToChunk2(sc, colIdx, col, colData, chk)
 		if err != nil {
 			fmt.Println("col2chunk failed !,err=", err)

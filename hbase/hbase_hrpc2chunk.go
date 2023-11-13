@@ -71,16 +71,23 @@ func HrpcResult2Chunk(sctx sessionctx.Context, schema *expression.Schema, tblInf
 		// Bug Fix:
 		// 		INPUT SQL:	select * from tb1 where id = 1 or id = 1
 		//		the col is like 'test.tb1.id' not 'id', then hrMap can not find it.
+		if 0 == len(col.OrigName) {
+			continue
+		}
 		colNames := strings.SplitAfter(col.OrigName, ".")
 		colName := colNames[len(colNames)-1]
 		if val, ok := hrMap[colName]; ok {
 			kvmap[col.ID] = val
 		} else {
 			fmt.Println("Error: can not get column " + col.OrigName + " colName " + colName)
+			break
 		}
 		fmt.Println("col.OrigName=", col.OrigName, "col.ID=", col.ID, "col.UniqueID=", col.UniqueID)
 	}
-
+	if 0 == len(kvmap) {
+		fmt.Println("kvmap no data")
+		return nil
+	}
 	// TODO check colData is not nil
 	// err := decoder.DecodeColToChunk(col.Index, col, colData, chk)
 	err := decoder.DecodeToChunk2(sctx.GetSessionVars().StmtCtx, kvmap, handle, chk)
