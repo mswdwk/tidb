@@ -631,9 +631,8 @@ func (decoder *ChunkDecoder) DecodeToChunk2(sc *stmtctx.StatementContext, rowDat
 		colData, ok := rowData[col.ID]
 		notFound := !ok
 		// TODO: judge if is not nil
-		isNil := false
-		fmt.Println("Hbase data convert colIdx=", colIdx, " col.ID:", col.ID, ",notFound:", notFound, ",isNil:",
-			isNil, ",byte len=", len(colData), "col.Ft.type=", col.Ft.GetType())
+		// isNil := false
+		// fmt.Println("Hbase data convert colIdx=", colIdx, " col.ID:", col.ID, ",notFound:", notFound, ",isNil:",isNil, ",byte len=", len(colData), "col.Ft.type=", col.Ft.GetType())
 		if notFound {
 			return errors.New("not found column!")
 		}
@@ -670,7 +669,7 @@ func (decoder *ChunkDecoder) DecodeToChunk2(sc *stmtctx.StatementContext, rowDat
 func (decoder *ChunkDecoder) decodeColToChunk2(sc *stmtctx.StatementContext, colIdx int, col *ColInfo, colData []byte, chk *chunk.Chunk) error {
 	switch col.Ft.GetType() {
 	case mysql.TypeLonglong, mysql.TypeLong, mysql.TypeInt24, mysql.TypeShort, mysql.TypeTiny:
-		fmt.Println("hbase Int value: ", colData)
+		// fmt.Println("hbase Int value: ", colData)
 		if mysql.HasUnsignedFlag(col.Ft.GetFlag()) {
 			v, e := strconv.ParseUint(string(colData), 10, 0)
 			if e != nil {
@@ -692,7 +691,7 @@ func (decoder *ChunkDecoder) decodeColToChunk2(sc *stmtctx.StatementContext, col
 			fmt.Println("hbase value parse INT failed! err=", e)
 			return e
 		}
-		fmt.Println("hbase TypeYear value: ", colData, ",v=", v)
+		// fmt.Println("hbase TypeYear value: ", colData, ",v=", v)
 		chk.AppendInt64(colIdx, v)
 	case mysql.TypeFloat:
 		fVal, err := strconv.ParseFloat(string(colData), 64)
@@ -737,7 +736,9 @@ func (decoder *ChunkDecoder) decodeColToChunk2(sc *stmtctx.StatementContext, col
 		// var t types.Time
 		// t.SetType(col.Ft.GetType())
 		// t.SetFsp(col.Ft.GetDecimal())
-		fmt.Println("hbase value parse date/datetime/timestamp ")
+
+		// fmt.Println("hbase value parse date/datetime/timestamp ")
+
 		// string 2 time
 		// sc *stmtctx.StatementContext,
 		t, err := types.ParseTime(sc, string(colData), col.Ft.GetType(), col.Ft.GetDecimal(), nil)

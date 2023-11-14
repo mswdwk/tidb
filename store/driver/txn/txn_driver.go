@@ -17,7 +17,6 @@ package txn
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"sync/atomic"
 
 	"github.com/pingcap/errors"
@@ -61,7 +60,7 @@ func NewTiKVTxn(txn *tikv.KVTxn) kv.Transaction {
 }
 
 func (txn *tikvTxn) GetTableInfo(id int64) *model.TableInfo {
-	fmt.Println("DEBUG_GETTABLEINFO")
+	//fmt.Println("DEBUG_GETTABLEINFO")
 	return txn.idxNameCache[id]
 }
 
@@ -94,7 +93,7 @@ func (txn *tikvTxn) LockKeysFunc(ctx context.Context, lockCtx *kv.LockCtx, fn fu
 }
 
 func (txn *tikvTxn) Commit(ctx context.Context) error {
-	fmt.Println("DEBUG_COMMIT")
+	//fmt.Println("DEBUG_COMMIT")
 	err := txn.KVTxn.Commit(ctx)
 	return txn.extractKeyErr(err)
 }
@@ -168,20 +167,20 @@ func (txn *tikvTxn) IterReverse(k kv.Key) (iter kv.Iterator, err error) {
 // Do not use len(value) == 0 or value == nil to represent non-exist.
 // If a key doesn't exist, there shouldn't be any corresponding entry in the result map.
 func (txn *tikvTxn) BatchGet(ctx context.Context, keys []kv.Key) (map[string][]byte, error) {
-	fmt.Println("DEBUG_BATCH_GET: len(k)=", len(keys))
+	//fmt.Println("DEBUG_BATCH_GET: len(k)=", len(keys))
 	r, ctx := tracing.StartRegionEx(ctx, "tikvTxn.BatchGet")
 	defer r.End()
 	return NewBufferBatchGetter(txn.GetMemBuffer(), nil, txn.GetSnapshot()).BatchGet(ctx, keys)
 }
 
 func (txn *tikvTxn) Delete(k kv.Key) error {
-	fmt.Println("DEBUG_DELETE: len(k)=", len(k))
+	//fmt.Println("DEBUG_DELETE: len(k)=", len(k))
 	err := txn.KVTxn.Delete(k)
 	return derr.ToTiDBErr(err)
 }
 
 func (txn *tikvTxn) Get(ctx context.Context, k kv.Key) ([]byte, error) {
-	fmt.Println("DEBUG_GET: len(k)=", len(k))
+	//fmt.Println("DEBUG_GET: len(k)=", len(k))
 	val, err := txn.GetMemBuffer().Get(ctx, k)
 	if kv.ErrNotExist.Equal(err) {
 		val, err = txn.GetSnapshot().Get(ctx, k)

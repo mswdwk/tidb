@@ -43,7 +43,7 @@ func GetOneRowkey(tableName string, rowkey string) (*hrpc.Result, error) {
 		fmt.Println("hbase client get rowkey error:"+err.Error(), ",tableName ", tableName)
 		return nil, err
 	}
-	fmt.Printf("get hbase table %s rowkey %s\n", tableName, rowkey)
+	// logutil.BgLogger().Debug(fmt.Sprintf("get hbase table %s rowkey %s\n", tableName, rowkey))
 	// displayCells(getRsp)
 	return getRsp, nil
 }
@@ -58,11 +58,11 @@ func PutOneRowOneFiled(tableName string, rowkey string, cf string, field string,
 	resp, err := G_HbaseClient.Put(putRequest)
 
 	if err != nil {
-		fmt.Println("hbase client put row error:" + err.Error())
+		fmt.Println("hbase client put row error:" + err.Error() + ",resp= " + resp.String())
 		return
 	}
-	fmt.Printf("table %s put rowkey %s [%s:%s] value[%s] , resp partial %t\n",
-		tableName, rowkey, cf, field, value, resp.Partial)
+
+	// logutil.BgLogger().Debug(fmt.Sprint("table %s put rowkey %s [%s:%s] value[%s] , resp partial %t\n", tableName, rowkey, cf, field, value, resp.Partial))
 }
 
 func PutOneRowOneCf(tableName string, rowkey string, cf string, field_values map[string][]byte) {
@@ -75,12 +75,12 @@ func PutOneRowOneCf(tableName string, rowkey string, cf string, field_values map
 	resp, err := G_HbaseClient.Put(putRequest)
 
 	if err != nil {
-		fmt.Println("hbase client put one row failed, table ", tableName, ",error "+err.Error())
+		fmt.Println("hbase client put one row failed, table ", tableName, ",error "+err.Error()+", resp="+resp.String())
 		return
 	}
-	fmt.Printf("table %s put rowkey %s cf=%s field_values=%v , resp partial %t\n",
-		tableName, rowkey, cf, field_values, resp.Partial)
+	//logutil.BgLogger().Debug(fmt.Sprintf("table %s put rowkey %s cf=%s field_values=%v , resp partial %t\n",tableName, rowkey, cf, field_values, resp.Partial))
 }
+
 func CheckAndPutOneRow(tableName string, rowkey string, cf string, field string, oldvalue string, newvalue string) {
 	// oldValueMap := map[string]map[string][]byte{cf: map[string][]byte{field: []byte(oldvalue)}}
 	// oldValue, err := json.Marshal(oldValueMap)
@@ -91,14 +91,13 @@ func CheckAndPutOneRow(tableName string, rowkey string, cf string, field string,
 	newValueMap := map[string]map[string][]byte{cf: map[string][]byte{field: []byte(newvalue)}}
 	newRequest, _ := hrpc.NewPutStr(context.Background(), tableName, rowkey, newValueMap)
 
-	ret, err := G_HbaseClient.CheckAndPut(newRequest, cf, field, []byte(oldvalue))
+	resp, err := G_HbaseClient.CheckAndPut(newRequest, cf, field, []byte(oldvalue))
 
 	if err != nil {
-		fmt.Println("hbase client chaeck and put row error:" + err.Error())
+		fmt.Printf("hbase client chaeck and put row error: %s resp= %t\n", err.Error(), resp)
 		return
 	}
-	fmt.Printf("check and put table %s rowkey %s [%s:%s] oldV[%s] newV[%s], ret %t\n",
-		tableName, rowkey, cf, field, oldvalue, newvalue, ret)
+	// logutil.BgLogger().Debug(fmt.Sprintf("check and put table %s rowkey %s [%s:%s] oldV[%s] newV[%s], ret %t\n",tableName, rowkey, cf, field, oldvalue, newvalue, ret))
 }
 
 func DeleteOneRow(tableName string, rowkey string) {
@@ -109,15 +108,15 @@ func DeleteOneRow(tableName string, rowkey string) {
 	// values := map[string]map[string][]byte{"cf": {"a": []byte(time.Now().String())}}
 	// values := map[string]map[string][]byte{"cf": map[string][]byte{"a": []byte("1")}}
 	putRequest, _ := hrpc.NewDelStr(context.Background(), tableName, rowkey, nil)
-	resp, err := G_HbaseClient.Delete(putRequest)
+	_, err := G_HbaseClient.Delete(putRequest)
 
 	if err != nil {
 		fmt.Println("hbase client delete one row failed: rowkey=", rowkey, ",error="+err.Error())
 		return
 	}
-	displayCells(resp)
+	//displayCells(resp)
 
-	fmt.Println("delete row ok,tableName=", tableName, ",rowkey=", rowkey)
+	// logutil.BgLogger().Debug(fmt.Sprintln("delete row ok,tableName=", tableName, ",rowkey=", rowkey))
 }
 
 func TableScanRange(tableName string, startRow, stopRow string) {
@@ -162,7 +161,7 @@ func TableScanRangeOpen(tableName string, startRow, stopRow string) *hrpc.Scanne
 		fmt.Println("hbase get client error:" + err.Error())
 		return nil
 	}
-	fmt.Printf("OPEN: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
+	// logutil.BgLogger().Debug(fmt.Sprintf("OPEN: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow))
 	return &scan
 }
 
@@ -174,7 +173,7 @@ func TableScanRangeNext(tableName string, startRow, stopRow string, scan *hrpc.S
 		return nil
 	}
 
-	fmt.Printf("NEXT: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
+	// logutil.BgLogger().Debug(fmt.Sprintf("NEXT: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow))
 
 	r, err := (*scan).Next()
 	if nil != err || nil == r || (nil != r && 0 == len(r.Cells)) {
@@ -189,7 +188,7 @@ func TableScanRangeClose(tableName string, startRow, stopRow string, scan *hrpc.
 		fmt.Println("error: hbase scan is nil")
 		return errors.New("hbase scan is nil ")
 	}
-	fmt.Printf("CLOSE: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow)
+	// logutil.BgLogger().Debug(fmt.Sprintf("CLOSE: scan hbase table %s startRow %s stopRow %s\n", tableName, startRow, stopRow))
 
 	err := (*scan).Close()
 	return err

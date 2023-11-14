@@ -329,7 +329,7 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 	if e.tblInfo.DataSourceType == datasource.TypeHbase {
 		hbaseRowkey := hex.EncodeToString(e.handle.Encoded())
 		info_msg := fmt.Sprintf("prepare to get rowkey from hbase table %s, key=%s, hbaseRowkey %s", e.tblInfo.Name.String(), key.String(), hbaseRowkey)
-		fmt.Println(info_msg)
+		// fmt.Println(info_msg)
 		logutil.Logger(ctx).Info(info_msg)
 		// TODO: Get dbname/schema as namespace
 		// convert hrpcVal to tikv value []byte
@@ -343,7 +343,7 @@ func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 	}
 
 	val, err := e.getAndLock(ctx, key)
-	fmt.Println("got rowkey from tikv table ", e.tblInfo.Name.String(), ", key=", key.String())
+	// fmt.Println("got rowkey from tikv table ", e.tblInfo.Name.String(), ", key=", key.String())
 	if err != nil {
 		fmt.Println("tidb can not get key " + string(key))
 		return err

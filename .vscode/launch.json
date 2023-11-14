@@ -20,7 +20,7 @@
         "mode": "local",
         "env": {}, // "hbasePath":"127.0.0.1:2181"
         "args": ["--store=tikv","--path=127.0.0.1:2379" ,"--log-file=/tmp/tidb.log","--hbase-path=127.0.0.1:12181" ],
-        "processId": 9531
+        "processId": 10287
        }
     ]
 }

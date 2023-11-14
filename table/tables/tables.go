@@ -894,10 +894,9 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 
 	tbName := t.Meta().Name.String()
 	if t.Meta().DataSourceType == datasource.TypeHbase {
-		fmt.Println("add record in hbase table ", tbName)
+		// fmt.Println("add record in hbase table ", tbName)
 		hbaseRowkey := t.RecordHbaseRowKey(recordID)
-		logutil.Logger(ctx).Info("prepare to set rowkey to hbase table " + tbName + ", key=" + hbaseRowkey.String() +
-			",tikv val=" + string(value))
+		// logutil.Logger(ctx).Info("prepare to set rowkey to hbase table " + tbName + ", key=" + hbaseRowkey.String() +",tikv val=" + string(value))
 		hbase.PutOneRowOneCf(tbName, hbaseRowkey.String(), "cf", fieldsValue)
 	} else {
 		fmt.Println("insert into tikv table ", tbName, ", len(key) ", len(key), ",len(value) ", len(value))

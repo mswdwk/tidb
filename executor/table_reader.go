@@ -285,8 +285,8 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 	if tbInfo.DataSourceType == datasource.TypeHbase {
 		//hbaseRowkey := hex.EncodeToString(e.handle.Encoded())
 		info_msg := "" // := fmt.Sprintf("prepare to scan hbase table %s", tbInfo.Name.String())
-		fmt.Println(info_msg)
-		logutil.Logger(ctx).Info(info_msg)
+		// fmt.Println(info_msg)
+		// logutil.Logger(ctx).Info(info_msg)
 		// TODO 1: Get dbname/schema as namespace
 		// TODO 2: update startkey stopkey after NEXT call
 		// TODO 3: hbase scan with filter
@@ -304,13 +304,13 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 			}
 			return nil
 		}
-		fmt.Println(info_msg)
+		// fmt.Println(info_msg)
 		logutil.Logger(ctx).Info(info_msg)
 		// TODO: CREATE HBASE HANDLER like resultHandler *tableResultHandler
 
 		// Convert hrpcVal to tikv value []byte
 		schema := e.Schema()
-		// for count(*) , the schema len is 1 , and Name str is ''.
+		// for count(*)/sum(id)/max(id) , the schema len is 1 , and Name str is ''.
 		if nil == e.Schema() {
 			columns := tbInfo.Columns
 			schema := expression.NewSchema(make([]*expression.Column, 0, len(columns))...)
@@ -322,7 +322,7 @@ func (e *TableReaderExecutor) Next(ctx context.Context, req *chunk.Chunk) error 
 					OrigName: col.Name.O,
 				})
 			}
-			fmt.Println("schema is nil ,maybe it's select count(*),so calculate schema auto!")
+			logutil.Logger(ctx).Warn("schema is nil ,maybe it's select count(*),so calculate schema auto!")
 		}
 		decoder := NewRowDecoder(e.ctx, schema, tbInfo)
 		return hbase.HrpcResult2Chunk(e.ctx, schema, tbInfo, nil, r, req, decoder)

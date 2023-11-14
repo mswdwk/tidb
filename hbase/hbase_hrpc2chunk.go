@@ -21,15 +21,16 @@ func Cell2Map(h *hrpc.Result) map[string][]byte {
 	}
 
 	m := make(map[string][]byte, 16)
-	for i, v := range h.Cells { // v结构体中的Value保存了真正的数据
+	for _, v := range h.Cells { // v结构体中的Value保存了真正的数据
 		// value := v.Value
-		fmt.Printf("i: %d", i)
-		//fmt.Printf("v=%V"+ *v)
+		/*fmt.Printf("i: %d", i)
 		fmt.Printf("\tRow:" + string(v.Row))
 		fmt.Printf("\tFamily:" + string(v.Family))
-		fmt.Printf("\tQualifier:" + string(v.Qualifier))
+		fmt.Printf("\tQualifier:" + string(v.Qualifier))*/
 		key := string(v.Qualifier)
-		fmt.Println("\tvalue:" + string(v.Value))
+
+		//fmt.Println("\tvalue:" + string(v.Value))
+
 		// fmt.Printf("\tcellType:" + string(*v.CellType))
 		// fmt.Println("\ttags:" + string(v.Tags))
 		m[key] = v.Value
@@ -79,10 +80,11 @@ func HrpcResult2Chunk(sctx sessionctx.Context, schema *expression.Schema, tblInf
 		if val, ok := hrMap[colName]; ok {
 			kvmap[col.ID] = val
 		} else {
-			fmt.Println("Error: can not get column " + col.OrigName + " colName " + colName)
-			break
+			return errors.New(fmt.Sprint("Error: can not get column " + col.OrigName + " colName " + colName))
+
 		}
-		fmt.Println("col.OrigName=", col.OrigName, "col.ID=", col.ID, "col.UniqueID=", col.UniqueID)
+		// logutil.Logger(sctx).Debug("")
+		// fmt.Println("col.OrigName=", col.OrigName, "col.ID=", col.ID, "col.UniqueID=", col.UniqueID)
 	}
 	if 0 == len(kvmap) {
 		fmt.Println("kvmap no data")
